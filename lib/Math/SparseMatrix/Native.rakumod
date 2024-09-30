@@ -51,7 +51,7 @@ class CSR {
         transpose($!row-ptr, $!col-index, $!values, $!nrow, $!ncol, $t-row-ptr, $t-col-index, $t-values);
 
         # Result
-        return CSR.new(
+        return self.bless(
                 row-ptr => $t-row-ptr,
                 col-index => $t-col-index,
                 values => $t-values,

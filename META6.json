@@ -1,0 +1,38 @@
+{
+  "name": "Math::SparseMatrix::Native",
+  "description": "Raku package sparse matrix algorithms based on C implementations.",
+  "version": "0.0.1",
+  "perl": "6.d",
+  "authors": [
+    "Anton Antonov"
+  ],
+  "auth": "zef:antononcube",
+  "depends": [
+    "NativeHelpers::Array"
+  ],
+  "build-depends": [
+    "LibraryMake",
+    "Distribution::Builder::MakeFromJSON",
+    "Math::SparseMatrix::Native::CustomBuilder"
+  ],
+  "test-depends": [],
+  "provides": {
+    "Math::SparseMatrix::Native": "lib/Math/SparseMatrix/Native.rakumod",
+    "Math::SparseMatrix::Native::CustomBuilder": "lib/Math/SparseMatrix/Native/CustomBuilder.rakumod"
+  },
+  "resources": [
+    "libraries/SparseMatrixFunctions"
+  ],
+  "license": "Artistic-2.0",
+  "tags": [
+    "sparse",
+    "sparse matrix",
+    "linear algebra",
+    "sparse linear algebra",
+    "dot",
+    "dot product"
+  ],
+  "api": "0",
+  "source-url": "https://github.com/antononcube/Raku-Math-SparseMatrix-Native.git",
+  "builder": "Math::SparseMatrix::Native::CustomBuilder"
+}

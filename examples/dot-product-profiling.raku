@@ -1,7 +1,7 @@
 #!/usr/bin/env raku
 use v6.d;
 
-use lib <. lib>;
+#use lib <. lib>;
 use Math::SparseMatrix::Native;
 use Math::SparseMatrix::Utilities;
 use NativeCall;
@@ -10,19 +10,22 @@ use JSON::Fast;
 
 my $nrow = 1_000;
 my $ncol = 10_000;
-my $density = 0.002;
+my $density = 0.001;
 my $tol = 0.01;
 my $type = 'CSR';
 
 say "-" x 100;
 say "Matrix 1:";
+my $tstart = now;
 my $matrix1 = generate-random-sparse-matrix($nrow, $ncol, :$density, :$tol, :$type):!decorated;
 say $matrix1;
+my $tend = now;
+say "Generation time: {$tend - $tstart} seconds.";
 say "-" x 100;
 $matrix1.print if $matrix1.ncol < 20 && $matrix1.nrow < 20;
 say "-" x 100;
 
-my $tstart = now;
+$tstart = now;
 my $matrix2 = Math::SparseMatrix::Native::CSR.new(
         row-ptr => $matrix1.row-ptr,
         col-index => $matrix1.col-index,
@@ -31,7 +34,7 @@ my $matrix2 = Math::SparseMatrix::Native::CSR.new(
         ncol => $matrix1.ncol,
         implicit-value => $matrix1.implicit-value
         );
-my $tend = now;
+$tend = now;
 say $matrix2.raku;
 say "Creation time: {$tend - $tstart} seconds.";
 
@@ -40,6 +43,7 @@ my $matrix3 = $matrix2.transpose;
 $tend = now;
 say (:$matrix3);
 say "Transpose time: {$tend - $tstart} seconds.";
+
 
 say "-" x 100;
 
@@ -75,4 +79,3 @@ my $matrix6 = Math::SparseMatrix::CSR.new(
 $matrix6.print if $matrix5.ncol < 20 && $matrix5.nrow < 20;
 
 say "-" x 100;
-

@@ -92,16 +92,3 @@ class CSR {
                 );
     }
 }
-
-
-#-----------------------------------------------------------
-#`[
-our proto sub dot-product(CSR:D $m1, CSR:D $m2 --> CSR:D) is export {*}
-
-multi sub dot-product(CSR:D $m1, CSR:D $m2 --> CSR:D) {
-    die 'The number of rows of the argument is expected to be equal to the number of columns of the object.'
-    unless $m1.ncol == $m2.nrow;
-
-
-}
-]

@@ -26,7 +26,7 @@ class CSRStruct is repr('CStruct') {
     sub destroy_sparse_matrix(CSRStruct is rw)
             is native($library) {*}
 
-    sub random_sparse_matrix(CSRStruct is rw, uint32 $nrow, uint32 $ncol, uint32 $nnz, num64 $implicit_value --> int32)
+    sub random_sparse_matrix(CSRStruct is rw, uint32 $nrow, uint32 $ncol, uint32 $nnz, num64 $implicit_value, uint32 $seed --> int32)
             is native($library) {*}
 
     sub transpose(CSRStruct is rw, CSRStruct --> int32)
@@ -66,22 +66,38 @@ class CSRStruct is repr('CStruct') {
 
 
     #----------------------------------------------------------------
-    multi method random(UInt:D $nrow, UInt:D $ncol, $nnz is copy = Whatever, Numeric:D $implicit_value = 0.0 --> int32) {
-        return self.random(:$nrow, :$ncol, :$nnz, :$implicit_value);
+    multi method random(
+            UInt:D $nrow,
+            UInt:D $ncol,
+            $nnz is copy = Whatever,
+            Numeric:D $implicit_value = 0.0,
+            :$seed is copy = Whatever --> int32) {
+        return self.random(:$nrow, :$ncol, :$nnz, :$implicit_value, :$seed);
     }
 
-    multi method random(UInt:D :$nrow, UInt:D :$ncol, :$nnz is copy = Whatever, Numeric:D :$implicit_value = 0.0 --> int32) {
+    multi method random(UInt:D :$nrow,
+                        UInt:D :$ncol,
+                        :$nnz is copy = Whatever,
+                        Numeric:D :$implicit_value = 0.0,
+                        :$seed is copy = Whatever --> int32) {
         if $nnz.isa(Whatever) {
             $nnz = min(1000, $nrow * $ncol * 0.01).Int;
         }
         die 'The agument $nnz is expected to be a non-negative integer or Whatever.'
         unless $nnz ~~ Int:D && $nnz ≥ 0;
 
+        if $seed.isa(Whatever) {
+            $seed = now.UInt;
+        }
+        die 'The agument $seed is expected to be a non-negative integer or Whatever.'
+        unless $seed ~~ Int:D && $nnz ≥ 0;
+
+
         if $!values || $!col_index || $!row_ptr {
             destroy_sparse_matrix(self);
         }
 
-        my $res = random_sparse_matrix(self, $nrow, $ncol, $nnz, $implicit_value.Num);
+        my $res = random_sparse_matrix(self, $nrow, $ncol, $nnz, $implicit_value.Num, $seed.UInt);
         return self;
     }
 

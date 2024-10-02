@@ -136,7 +136,7 @@ void destroy_sparse_matrix(CSRStruct *matrix) {
 //=====================================================================
 // Random sparse matrix for CStruct
 //=====================================================================
-int random_sparse_matrix(CSRStruct *matrix, unsigned int nrow, unsigned int ncol, unsigned int nnz, double implicit_value) {
+int random_sparse_matrix(CSRStruct *matrix, unsigned int nrow, unsigned int ncol, unsigned int nnz, double implicit_value, unsigned int seed) {
     if (matrix == NULL || nrow == 0 || ncol == 0 || nnz == 0 || nnz > nrow * ncol) {
         return 1;
     }
@@ -156,7 +156,8 @@ int random_sparse_matrix(CSRStruct *matrix, unsigned int nrow, unsigned int ncol
         return 1;
     }
 
-    srand(time(NULL));
+    //srand(time(NULL));
+    srand(seed);
 
     for (unsigned int i = 0; i < nnz; ++i) {
         matrix->values[i] = (double)rand() / RAND_MAX;

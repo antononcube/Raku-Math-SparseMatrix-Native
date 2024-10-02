@@ -54,7 +54,7 @@ class CSRStruct is repr('CStruct') {
 
     #----------------------------------------------------------------
     submethod BUILD(:$values, :$col_index, :$row_ptr, :$nnz is copy = 0,
-                    UInt:D :$nrow, UInt:D :$ncol,
+                    UInt:D :$nrow = 0, UInt:D :$ncol = 0,
                     Numeric:D :$implicit_value = 0e0) {
 
         if $nnz.isa(Whatever) { $nnz = $values.elems }
@@ -80,7 +80,11 @@ class CSRStruct is repr('CStruct') {
 
 
     #----------------------------------------------------------------
-    method random(UInt:D $nrow, UInt:D $ncol, $nnz is copy = Whatever, Numeric:D $implicit_value = 0.0 --> int32) {
+    multi method random(UInt:D $nrow, UInt:D $ncol, $nnz is copy = Whatever, Numeric:D $implicit_value = 0.0 --> int32) {
+        return self.random(:$nrow, :$ncol, :$nnz, :$implicit_value);
+    }
+
+    multi method random(UInt:D :$nrow, UInt:D :$ncol, :$nnz is copy = Whatever, Numeric:D :$implicit_value = 0.0 --> int32) {
         if $nnz.isa(Whatever) {
             $nnz = min(1000, $nrow * $ncol * 0.01).Int;
         }

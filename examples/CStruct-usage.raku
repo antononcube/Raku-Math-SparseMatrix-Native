@@ -5,7 +5,7 @@ use lib <. lib>;
 use NativeCall;
 use Math::SparseMatrix::Native;
 
-my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new(nrow => 3, ncol => 3).random(1000, 10_000, 20000);
+my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new().random(nrow => 1000, ncol => 10_000, nnz => 20000);
 
 say (nrow => $matrix1.nrow, ncol => $matrix1.ncol, nnz => $matrix1.nnz);
 #$matrix4.print;

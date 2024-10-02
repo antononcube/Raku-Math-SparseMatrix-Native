@@ -137,26 +137,39 @@ void destroy_sparse_matrix(CSRStruct *matrix) {
 // Random sparse matrix for CStruct
 //=====================================================================
 int random_sparse_matrix(CSRStruct *matrix, unsigned int nrow, unsigned int ncol, unsigned int nnz, double implicit_value) {
-    matrix->nrow = nrow;
-    matrix->ncol = ncol;
-    matrix->nnz = nnz;
-    matrix->implicit_value = implicit_value;
+    if (matrix == NULL || nrow == 0 || ncol == 0 || nnz == 0 || nnz > nrow * ncol) {
+        return 1;
+    }
+
     matrix->values = (double *)malloc(nnz * sizeof(double));
     matrix->col_index = (int *)malloc(nnz * sizeof(int));
-    matrix->row_ptr = (int *)malloc((nrow + 1) * sizeof(int));
+    matrix->row_ptr = (int *)calloc(nrow + 1, sizeof(int));
+    matrix->nnz = nnz;
+    matrix->nrow = nrow;
+    matrix->ncol = ncol;
+    matrix->implicit_value = implicit_value;
+
+    if (matrix->values == NULL || matrix->col_index == NULL || matrix->row_ptr == NULL) {
+        free(matrix->values);
+        free(matrix->col_index);
+        free(matrix->row_ptr);
+        return 1;
+    }
 
     srand(time(NULL));
-    for (unsigned int i = 0; i < nnz; i++) {
+
+    for (unsigned int i = 0; i < nnz; ++i) {
         matrix->values[i] = (double)rand() / RAND_MAX;
         matrix->col_index[i] = rand() % ncol;
     }
 
-    matrix->row_ptr[0] = 0;
-    for (unsigned int i = 1; i <= nrow; i++) {
-        matrix->row_ptr[i] = matrix->row_ptr[i - 1] + (rand() % (nnz / nrow));
-        if (matrix->row_ptr[i] > nnz) {
-            matrix->row_ptr[i] = nnz;
-        }
+    for (unsigned int i = 0; i < nnz; ++i) {
+        unsigned int row = rand() % nrow;
+        ++matrix->row_ptr[row + 1];
+    }
+
+    for (unsigned int i = 1; i <= nrow; ++i) {
+        matrix->row_ptr[i] += matrix->row_ptr[i - 1];
     }
 
     return 0;
@@ -311,13 +324,19 @@ int dot_pattern(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int n
     }
 
     IC[A->nrow] = IP;
-
     // This should be refactored to use create_sparse_matrix
+    //create_sparse_matrix(result, A->nrow, B->ncol, 0, A->implicit_value);
     result->values = (double *)malloc(IP * sizeof(double));
     for (int i = 0; i < IP; ++i) {
         result->values[i] = 1.0;
     }
-    result->col_index = JC;
+
+    // result->col_index = JC;
+    result->col_index = (int *)calloc(IP, sizeof(int));
+    for (int i = 0; i < IP; ++i) {
+        result->col_index[i] = JC[i];
+    }
+
     result->row_ptr = IC;
     result->nnz = IP;
     result->nrow = A->nrow;
@@ -325,6 +344,7 @@ int dot_pattern(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int n
     result->implicit_value = 0.0;
 
     free(IX);
+    free(JC);
     return 0;
 }
 
@@ -334,15 +354,18 @@ int dot_numeric(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int n
         exit(EXIT_FAILURE);
     }
 
-    CSRStruct *pattern;
-    int err = dot_pattern(pattern, A, B, nnz);
-    int *IC = pattern->row_ptr;
-    int *JC = pattern->col_index;
+    CSRStruct pattern;
+    int err = dot_pattern(&pattern, A, B, nnz);
+    int *IC = pattern.row_ptr;
+    int *JC = (int *)calloc(pattern.nnz, sizeof(int));
+    for (int i = 0; i < pattern.nnz; ++i) {
+        JC[i] = pattern.col_index[i];
+    }
     int *IB = B->row_ptr;
     int *JB = B->col_index;
     double *BN = B->values;
     double *X = (double *)calloc(B->ncol, sizeof(double));
-    double *result_values = (double *)calloc(pattern->row_ptr[pattern->nnz], sizeof(double));
+    double *result_values = (double *)calloc(pattern.nnz, sizeof(double));
     int IP = 0;
 
     for (unsigned int i = 0; i < A->nrow; ++i) {
@@ -379,170 +402,14 @@ int dot_numeric(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int n
     result->values = result_values;
     result->col_index = JC;
     result->row_ptr = IC;
-    result->nnz = pattern->row_ptr[pattern->nrow];
+    result->nnz = pattern.row_ptr[pattern.nrow];
     result->nrow = A->nrow;
     result->ncol = B->ncol;
     result->implicit_value = 0.0;
 
     free(X);
+    free(pattern.row_ptr);
+    free(pattern.col_index);
+    free(pattern.values);
     return 0;
 }
-
-//=====================================================================
-// Transpose
-//=====================================================================
-//
-// Input:
-// IA, JA, AN          given matrix in RR(C)U.
-// N                   number of rows of the matrix.
-// M                   number of columns of the matrix.
-//
-// Output:
-// IAT, JAT, ANT   transposed matrix in RR(C)O.
-//
-void transpose_func(int *IA, int *JA, double *AN, unsigned int N, unsigned int M, int *IAT, int *JAT, double *ANT) {
-    int MH = M + 1;
-    int NH = N + 1;
-    int IAB, IAA, JAA, JP, J, K;
-
-//    *IAT = (int *)calloc(MH + 1, sizeof(int));
-//    *JAT = (int *)malloc((IA[NH - 1]) * sizeof(int));
-//    *ANT = (double *)malloc((IA[NH - 1]) * sizeof(double));
-
-    for (int I = 1; I <= M; I++) {
-        IAT[I] = 0;
-    }
-
-    IAB = IA[NH - 1];
-    for (int I = 0; I < IAB; I++) {
-        J = JA[I] + 2;
-        if (J <= M) {
-            IAT[J] = IAT[J] + 1;
-        }
-    }
-
-    IAT[0] = 0;
-    IAT[1] = 0;
-
-    if (M != 1) {
-        for (int I = 2; I <= M; I++) {
-            IAT[I] = IAT[I] + IAT[I - 1];
-        }
-    }
-
-    for (int I = 0; I < N; I++) {
-        IAA = IA[I];
-        IAB = IA[I + 1];
-        if (IAB < IAA) {
-            continue;
-        }
-        for (JP = IAA; JP < IAB; JP++) {
-            J = JA[JP] + 1;
-            K = IAT[J];
-            JAT[K] = I;
-            ANT[K] = AN[JP];
-            IAT[J] = K + 1;
-        }
-    }
-}
-
-//=====================================================================
-// Dot product
-//=====================================================================
-//
-//  Input:
-//  IA, JA      structure of the first matrix in RR(C)U.
-//  IB, JB      structure of the second matrix in RR(C)U.
-//
-//  NP          number of rows of the first matrix.
-//  NQ          number of columns of the first matrix and of rows of the second matrix.
-//  NR          number of columns of the second matrix.
-//
-//  Output:
-//  IC, JC      structure of the resulting matrix in RR(C)U.
-//
-//  Working space:
-//  IX          of dimension NR, multiple switch.
-//
-void dot_pattern_func(int *IA, int *JA, int *IB, int *JB, int NP, int NQ, int NR, int *IC, int *JC) {
-    int *IX = (int *)calloc(NR, sizeof(int));
-    int IP = 0;
-
-    for (int I = 0; I < NR; I++) {
-        IX[I] = 0;
-    }
-
-    for (int I = 0; I < NP; I++) {
-        IC[I] = IP;
-        int IAA = IA[I];
-        int IAB = IA[I + 1] - 1;
-        if (IAB < IAA) continue;
-
-        for (int JP = IAA; JP <= IAB; JP++) {
-            int J = JA[JP];
-            int IBA = IB[J];
-            int IBB = IB[J + 1] - 1;
-            if (IBB < IBA) continue;
-
-            for (int KP = IBA; KP <= IBB; KP++) {
-                int K = JB[KP];
-                if (IX[K] == I + 1) continue;
-                JC[IP] = K;
-                IP++;
-                IX[K] = I + 1;
-            }
-        }
-    }
-
-    IC[NP] = IP;
-    free(IX);
-}
-
-//---------------------------------------------------------------------
-//
-// Input:
-// IA, JA, AN  first given matrix in RR(C)U.
-// IB, JB, BN  second given matrix in RR(C)U.
-// IC, JC      structure of the resulting matrix in RR(C)U.
-// NP          number of rows of the first given matrix and of the resulting matrix.
-//
-// Output: CN         numerical values of the nonzeros of the resulting matrix.
-// Working space: X   expanded accumulator, of dimension equal to the number of columns of the resulting matrix.
-//
-void dot_numeric_func(int *IA, int *JA, double *AN, int *IB, int *JB, double *BN, int *IC, int *JC, int NP, double *CN) {
-    int NR = IC[NP]; // Number of columns of the resulting matrix
-    double *X = (double *)calloc(NR, sizeof(double));
-
-    for (int I = 0; I < NP; I++) {
-        int ICA = IC[I];
-        int ICB = IC[I + 1] - 1;
-        if (ICB < ICA) continue;
-
-        for (int J = ICA; J <= ICB; J++) {
-            X[JC[J]] = 0.0;
-        }
-
-        int IAA = IA[I];
-        int IAB = IA[I + 1] - 1;
-
-        for (int JP = IAA - 1; JP < IAB; JP++) {
-            int J = JA[JP];
-            double A = AN[JP];
-            int IBA = IB[J - 1];
-            int IBB = IB[J] - 1;
-            if (IBB < IBA) continue;
-
-            for (int KP = IBA - 1; KP < IBB; KP++) {
-                int K = JB[KP];
-                X[K] += A * BN[KP];
-            }
-        }
-
-        for (int J = ICA; J <= ICB; J++) {
-            CN[J] = X[JC[J]];
-        }
-    }
-
-    free(X);
-}
-

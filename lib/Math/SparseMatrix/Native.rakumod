@@ -38,7 +38,11 @@ class CSRStruct is repr('CStruct') {
     sub dot_numeric(CSRStruct is rw, CSRStruct, CSRStruct, int32 $nnz --> int32)
             is native($library) {*}
 
-    #----------------------------------------------------------------
+    sub add_scalar_to_sparse_matrix(CSRStruct is rw, CSRStruct $matrix, num64 $scalar, int32 $clone --> int32) is native($library) {*}
+
+    sub add_sparse_matrices(CSRStruct is rw, CSRStruct, CSRStruct --> int32) is native($library) {*}
+
+#----------------------------------------------------------------
     submethod BUILD(:$values, :$col_index, :$row_ptr, :$nnz is copy = 0,
                     UInt:D :$nrow = 0, UInt:D :$ncol = 0,
                     Numeric:D :$implicit_value = 0e0) {
@@ -124,6 +128,26 @@ class CSRStruct is repr('CStruct') {
                 values => Nil, col_index => Nil, col_index => Nil,
                 :$!nrow, ncol => $other.ncol, nnz => 0, implicit_value => 0e0);
         my $res = dot_numeric($target, self, $other, -1);
+        return $target;
+    }
+
+    #----------------------------------------------------------------
+    multi method add(Numeric:D $a, Bool:D :$clone = True) {
+        if $clone {
+            my $target = CSRStruct.new(
+                    values => Nil, col_index => Nil, col_index => Nil,
+                    :$!nrow, :$!ncol, nnz => 0, :$!implicit_value);
+            my $res = add_scalar_to_sparse_matrix($target, self, $a.Num, 1);
+            return $target;
+        } else {
+            my $res = add_scalar_to_sparse_matrix(self, self, $a.Num, 0);
+            return self;
+        }
+    }
+
+    multi method add(CSRStruct $other) {
+        my $target = CSRStruct.new();
+        my $res = add_sparse_matrices($target, self, $other);
         return $target;
     }
 

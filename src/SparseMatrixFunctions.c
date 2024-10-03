@@ -409,8 +409,100 @@ int dot_numeric(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int n
     result->implicit_value = 0.0;
 
     free(X);
-    free(pattern.row_ptr);
     free(pattern.col_index);
     free(pattern.values);
+    return 0;
+}
+
+//=====================================================================
+// Element-wise addition
+//=====================================================================
+int add_scalar_to_sparse_matrix(CSRStruct *result, CSRStruct *matrix, double scalar, int clone) {
+
+    if (clone) {
+        result->values = (double*)malloc(matrix->nnz * sizeof(double));
+        result->col_index = (int*)malloc(matrix->nnz * sizeof(int));
+        result->row_ptr = (int*)malloc((matrix->nrow + 1) * sizeof(int));
+        result->nnz = matrix->nnz;
+        result->nrow = matrix->nrow;
+        result->ncol = matrix->ncol;
+        result->implicit_value = matrix->implicit_value + scalar;
+
+        for (unsigned int i = 0; i < matrix->nnz; i++) {
+            result->values[i] = matrix->values[i];
+            result->col_index[i] = matrix->col_index[i];
+            result->values[i] += scalar;
+        }
+        for (unsigned int i = 0; i <= matrix->nrow; i++) {
+            result->row_ptr[i] = matrix->row_ptr[i];
+        }
+    } else {
+        matrix->implicit_value = matrix->implicit_value + scalar;
+        for (unsigned int i = 0; i < matrix->nnz; i++) {
+            matrix->values[i] += scalar;
+        }
+    }
+
+    return 0;
+}
+
+int add_sparse_matrices(CSRStruct *result, const CSRStruct *A, const CSRStruct *B) {
+    if (A->nrow != B->nrow || A->ncol != B->ncol) return -1;
+
+    int *row_ptr = (int *)calloc(A->nrow + 1, sizeof(int));
+    int nnz_estimate = A->nnz + B->nnz;
+    double *values = (double *)malloc(nnz_estimate * sizeof(double));
+    int *col_index = (int *)malloc(nnz_estimate * sizeof(int));
+
+    unsigned int pos = 0;
+    for (unsigned int i = 0; i < A->nrow; ++i) {
+        unsigned int a_start = A->row_ptr[i];
+        unsigned int a_end = A->row_ptr[i + 1];
+        unsigned int b_start = B->row_ptr[i];
+        unsigned int b_end = B->row_ptr[i + 1];
+
+        while (a_start < a_end && b_start < b_end) {
+            if (A->col_index[a_start] < B->col_index[b_start]) {
+                values[pos] = A->values[a_start];
+                col_index[pos] = A->col_index[a_start];
+                a_start++;
+            } else if (A->col_index[a_start] > B->col_index[b_start]) {
+                values[pos] = B->values[b_start];
+                col_index[pos] = B->col_index[b_start];
+                b_start++;
+            } else {
+                values[pos] = A->values[a_start] + B->values[b_start];
+                col_index[pos] = A->col_index[a_start];
+                a_start++;
+                b_start++;
+            }
+            pos++;
+        }
+
+        while (a_start < a_end) {
+            values[pos] = A->values[a_start];
+            col_index[pos] = A->col_index[a_start];
+            a_start++;
+            pos++;
+        }
+
+        while (b_start < b_end) {
+            values[pos] = B->values[b_start];
+            col_index[pos] = B->col_index[b_start];
+            b_start++;
+            pos++;
+        }
+
+        row_ptr[i + 1] = pos;
+    }
+
+    result->values = (double *)realloc(values, pos * sizeof(double));
+    result->col_index = (int *)realloc(col_index, pos * sizeof(int));
+    result->row_ptr = row_ptr;
+    result->nnz = pos;
+    result->nrow = A->nrow;
+    result->ncol = A->ncol;
+    result->implicit_value = A->implicit_value + B->implicit_value;
+
     return 0;
 }

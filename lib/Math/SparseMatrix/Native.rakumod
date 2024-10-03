@@ -47,6 +47,12 @@ class CSRStruct is repr('CStruct') {
     sub add_sparse_matrices(CSRStruct is rw, CSRStruct, CSRStruct --> int32)
             is native($library) {*}
 
+    sub multiply_scalar_to_sparse_matrix(CSRStruct is rw, CSRStruct $matrix, num64 $scalar, int32 $clone --> int32)
+            is native($library) {*}
+
+    sub multiply_sparse_matrices(CSRStruct is rw, CSRStruct, CSRStruct --> int32)
+            is native($library) {*}
+
     #----------------------------------------------------------------
     method dimensions() { return ($!nrow, $!ncol); }
 
@@ -76,6 +82,49 @@ class CSRStruct is repr('CStruct') {
         destroy_sparse_matrix(self);
     }
 
+
+    #----------------------------------------------------------------
+    multi method new(:dense_matrix(:@dense-matrix)! where @dense-matrix ~~ List:D && @dense-matrix.all ~~ List:D,
+                     :$nrow is copy = @dense-matrix.elems,
+                     :$ncol is copy = @dense-matrix>>.elems.max,
+                     Numeric:D :implicit_value(:$implicit-value) = 0) {
+        my @values;
+        my @col-index;
+        my @row-ptr = 0;
+
+        for @dense-matrix.kv -> $row, @cols {
+            for @cols.kv -> $col, $val {
+                if $val != $implicit-value && $row < $nrow && $col < $ncol {
+                    @values.push: $val;
+                    @col-index.push: $col;
+                }
+            }
+            @row-ptr.push: @values.elems;
+        }
+
+        if $nrow > @dense-matrix.elems {
+            @row-ptr.append( @row-ptr.tail xx ($nrow - @dense-matrix.elems))
+        }
+        self.bless(:@values, col_index => @col-index, row_ptr => @row-ptr, :$nrow, :$ncol, implicit-value => $implicit-value);
+    }
+
+    #----------------------------------------------------------------
+    # Dense array
+    #----------------------------------------------------------------
+    #| (Dense) array of arrays representation.
+    #| C<:$implicit-value> -- Implicit value to use.
+    method Array(:i(:iv(:$implicit-value)) is copy = Whatever) {
+        if $implicit-value.isa(Whatever) { $implicit-value = $!implicit_value }
+        my @result;
+        for ^$!nrow -> $i {
+            my @row = ($implicit-value xx $!ncol);
+            for $!row_ptr[$i] ..^ $!row_ptr[$i + 1] -> $j {
+                @row[$!col_index[$j]] = $!values[$j];
+            }
+            @result.push(@row);
+        }
+        return @result;
+    }
 
     #----------------------------------------------------------------
     multi method random(
@@ -125,11 +174,13 @@ class CSRStruct is repr('CStruct') {
     #----------------------------------------------------------------
     # Matrix-dense-vector
     multi method dot(@vector) {
-        die "If the first argument is a vector, then it is expected to be numeric with length that matches the columns of the sparse matrix."
+        die "If the first argument is a vector, then it is expected to be numeric, with length that matches the columns of the sparse matrix."
         unless @vector.elems == $!ncol && (@vector.all ~~ Numeric:D);
         my $vec = CArray[num64].new(@vector);
         my $target = CArray[num64].allocate($!nrow);
         my $res = dot_dense_vector($target, self, $vec);
+        say (:$target);
+        say (target => $target.Array);
         return $target.Array;
     }
 
@@ -169,6 +220,26 @@ class CSRStruct is repr('CStruct') {
     multi method add(CSRStruct $other) {
         my $target = CSRStruct.new();
         my $res = add_sparse_matrices($target, self, $other);
+        return $target;
+    }
+
+    #----------------------------------------------------------------
+    multi method multiply(Numeric:D $a, Bool:D :$clone = True) {
+        if $clone {
+            my $target = CSRStruct.new(
+                    values => Nil, col_index => Nil, col_index => Nil,
+                    :$!nrow, :$!ncol, nnz => 0, :$!implicit_value);
+            my $res = multiply_scalar_to_sparse_matrix($target, self, $a.Num, 1);
+            return $target;
+        } else {
+            my $res = multiply_scalar_to_sparse_matrix(self, self, $a.Num, 0);
+            return self;
+        }
+    }
+
+    multi method multiply(CSRStruct $other) {
+        my $target = CSRStruct.new();
+        my $res = multiply_sparse_matrices($target, self, $other);
         return $target;
     }
 

@@ -32,17 +32,25 @@ class CSRStruct is repr('CStruct') {
     sub transpose(CSRStruct is rw, CSRStruct --> int32)
             is native($library) {*}
 
+    sub dot_dense_vector(CArray[num64] is rw, CSRStruct, CArray[num64] --> int32 )
+            is native($library) {*}
+
     sub dot_pattern(CSRStruct is rw, CSRStruct, CSRStruct, int32 $nnz --> int32)
             is native($library) {*}
 
     sub dot_numeric(CSRStruct is rw, CSRStruct, CSRStruct, int32 $nnz --> int32)
             is native($library) {*}
 
-    sub add_scalar_to_sparse_matrix(CSRStruct is rw, CSRStruct $matrix, num64 $scalar, int32 $clone --> int32) is native($library) {*}
+    sub add_scalar_to_sparse_matrix(CSRStruct is rw, CSRStruct $matrix, num64 $scalar, int32 $clone --> int32)
+            is native($library) {*}
 
-    sub add_sparse_matrices(CSRStruct is rw, CSRStruct, CSRStruct --> int32) is native($library) {*}
+    sub add_sparse_matrices(CSRStruct is rw, CSRStruct, CSRStruct --> int32)
+            is native($library) {*}
 
-#----------------------------------------------------------------
+    #----------------------------------------------------------------
+    method dimensions() { return ($!nrow, $!ncol); }
+
+    #----------------------------------------------------------------
     submethod BUILD(:$values, :$col_index, :$row_ptr, :$nnz is copy = 0,
                     UInt:D :$nrow = 0, UInt:D :$ncol = 0,
                     Numeric:D :$implicit_value = 0e0) {
@@ -115,6 +123,19 @@ class CSRStruct is repr('CStruct') {
     }
 
     #----------------------------------------------------------------
+    # Matrix-dense-vector
+    multi method dot(@vector) {
+        die "If the first argument is a vector, then it is expected to be numeric with length that matches the columns of the sparse matrix."
+        unless @vector.elems == $!ncol && (@vector.all ~~ Numeric:D);
+        my $vec = CArray[num64].new(@vector);
+        my $target = CArray[num64].allocate($!nrow);
+        my $res = dot_dense_vector($target, self, $vec);
+        return $target.Array;
+    }
+
+
+    #----------------------------------------------------------------
+    # Matrix-matrix
     method dot-pattern(CSRStruct $other) {
         my $target = CSRStruct.new(
                 values => Nil, col_index => Nil, col_index => Nil,
@@ -123,7 +144,7 @@ class CSRStruct is repr('CStruct') {
         return $target;
     }
 
-    method dot(CSRStruct $other) {
+    multi method dot(CSRStruct $other) {
         my $target = CSRStruct.new(
                 values => Nil, col_index => Nil, col_index => Nil,
                 :$!nrow, ncol => $other.ncol, nnz => 0, implicit_value => 0e0);

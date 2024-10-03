@@ -230,7 +230,22 @@ int transpose(CSRStruct *target, CSRStruct *matrix) {
 }
 
 //=====================================================================
-// Dot product for CStruct
+// Dot product for CStruct (Matrix-Matrix)
+//=====================================================================
+int dot_dense_vector(double *target, CSRStruct *matrix, double *vector) {
+    for (unsigned int i = 0; i < matrix->nrow; i++) {
+        target[i] = 0.0;
+        unsigned int row_start = matrix->row_ptr[i];
+        unsigned int row_end = matrix->row_ptr[i + 1];
+        for (unsigned int j = row_start; j < row_end; j++) {
+            target[i] += matrix->values[j] * vector[matrix->col_index[j]];
+        }
+    }
+    return 0;
+}
+
+//=====================================================================
+// Dot product for CStruct (Matrix-Matrix)
 //=====================================================================
 
 int dot_nrow(const int *row_ptr, int n) {

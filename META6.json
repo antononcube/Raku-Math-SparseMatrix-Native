@@ -18,7 +18,8 @@
   "test-depends": [],
   "provides": {
     "Math::SparseMatrix::Native": "lib/Math/SparseMatrix/Native.rakumod",
-    "Math::SparseMatrix::Native::CustomBuilder": "lib/Math/SparseMatrix/Native/CustomBuilder.rakumod"
+    "Math::SparseMatrix::Native::CustomBuilder": "lib/Math/SparseMatrix/Native/CustomBuilder.rakumod",
+    "Math::SparseMatrix::Native::Utilities": "lib/Math/SparseMatrix/Native/Utilities.rakumod"
   },
   "resources": [
     "libraries/SparseMatrixFunctions"

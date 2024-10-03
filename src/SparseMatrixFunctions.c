@@ -136,24 +136,24 @@ void destroy_sparse_matrix(CSRStruct *matrix) {
 //=====================================================================
 // Equivalence of two CStructs
 //=====================================================================
-bool eqv_sorted_columns(CSRStruct *matrix1, CSRStruct *matrix2) {
+int eqv_sorted_columns(CSRStruct *matrix1, CSRStruct *matrix2) {
     if (matrix1->nrow != matrix2->nrow || matrix1->ncol != matrix2->ncol || matrix1->nnz != matrix2->nnz || matrix1->implicit_value != matrix2->implicit_value) {
-        return false;
+        return 0;
     }
 
     for (unsigned int i = 0; i < matrix1->nnz; ++i) {
         if (matrix1->values[i] != matrix2->values[i] || matrix1->col_index[i] != matrix2->col_index[i]) {
-            return false;
+            return 0;
         }
     }
 
     for (unsigned int i = 0; i <= matrix1->nrow; ++i) {
         if (matrix1->row_ptr[i] != matrix2->row_ptr[i]) {
-            return false;
+            return 0;
         }
     }
 
-    return true;
+    return 1;
 }
 
 //=====================================================================

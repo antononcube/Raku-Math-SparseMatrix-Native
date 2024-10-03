@@ -134,12 +134,33 @@ void destroy_sparse_matrix(CSRStruct *matrix) {
 
 
 //=====================================================================
+// Equivalence of two CStructs
+//=====================================================================
+bool eqv_sorted_columns(CSRStruct *matrix1, CSRStruct *matrix2) {
+    if (matrix1->nrow != matrix2->nrow || matrix1->ncol != matrix2->ncol || matrix1->nnz != matrix2->nnz || matrix1->implicit_value != matrix2->implicit_value) {
+        return false;
+    }
+
+    for (unsigned int i = 0; i < matrix1->nnz; ++i) {
+        if (matrix1->values[i] != matrix2->values[i] || matrix1->col_index[i] != matrix2->col_index[i]) {
+            return false;
+        }
+    }
+
+    for (unsigned int i = 0; i <= matrix1->nrow; ++i) {
+        if (matrix1->row_ptr[i] != matrix2->row_ptr[i]) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+//=====================================================================
 // Random sparse matrix for CStruct
 //=====================================================================
 int random_sparse_matrix(CSRStruct *matrix, unsigned int nrow, unsigned int ncol, unsigned int nnz, double implicit_value, unsigned int seed) {
-    if (matrix == NULL || nrow == 0 || ncol == 0 || nnz == 0 || nnz > nrow * ncol) {
-        return 1;
-    }
+    if (nnz > nrow * ncol) return -1; // More non-zero elements than possible
 
     matrix->values = (double *)malloc(nnz * sizeof(double));
     matrix->col_index = (int *)malloc(nnz * sizeof(int));
@@ -149,33 +170,40 @@ int random_sparse_matrix(CSRStruct *matrix, unsigned int nrow, unsigned int ncol
     matrix->ncol = ncol;
     matrix->implicit_value = implicit_value;
 
-    if (matrix->values == NULL || matrix->col_index == NULL || matrix->row_ptr == NULL) {
-        free(matrix->values);
-        free(matrix->col_index);
-        free(matrix->row_ptr);
-        return 1;
-    }
-
-    //srand(time(NULL));
     srand(seed);
 
-    for (unsigned int i = 0; i < nnz; ++i) {
-        matrix->values[i] = (double)rand() / RAND_MAX;
-        matrix->col_index[i] = rand() % ncol;
+    int *row_col_pairs = (int *)malloc(nnz * 2 * sizeof(int));
+    int count = 0;
+
+    while (count < nnz) {
+        int row = rand() % nrow;
+        int col = rand() % ncol;
+        int is_unique = 1;
+
+        for (int i = 0; i < count; i++) {
+            if (row_col_pairs[2 * i] == row && row_col_pairs[2 * i + 1] == col) {
+                is_unique = 0;
+                break;
+            }
+        }
+
+        if (is_unique) {
+            row_col_pairs[2 * count] = row;
+            row_col_pairs[2 * count + 1] = col;
+            matrix->values[count] = (double)rand() / RAND_MAX;
+            matrix->col_index[count] = col;
+            matrix->row_ptr[row + 1]++;
+            count++;
+        }
     }
 
-    for (unsigned int i = 0; i < nnz; ++i) {
-        unsigned int row = rand() % nrow;
-        ++matrix->row_ptr[row + 1];
-    }
-
-    for (unsigned int i = 1; i <= nrow; ++i) {
+    for (unsigned int i = 1; i <= nrow; i++) {
         matrix->row_ptr[i] += matrix->row_ptr[i - 1];
     }
 
+    free(row_col_pairs);
     return 0;
 }
-
 //=====================================================================
 // Transpose for CStruct
 //=====================================================================
@@ -430,9 +458,13 @@ int dot_numeric(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int n
 }
 
 //=====================================================================
-// Element-wise addition
+// Element-wise generic
 //=====================================================================
-int add_scalar_to_sparse_matrix(CSRStruct *result, CSRStruct *matrix, double scalar, int clone) {
+
+#define MULT_OP 101
+#define ADD_OP 102
+
+int op_scalar_to_sparse_matrix(CSRStruct *result, CSRStruct *matrix, double scalar, int clone, int op) {
 
     if (clone) {
         result->values = (double*)malloc(matrix->nnz * sizeof(double));
@@ -441,27 +473,41 @@ int add_scalar_to_sparse_matrix(CSRStruct *result, CSRStruct *matrix, double sca
         result->nnz = matrix->nnz;
         result->nrow = matrix->nrow;
         result->ncol = matrix->ncol;
-        result->implicit_value = matrix->implicit_value + scalar;
+        if (op == ADD_OP) {
+            result->implicit_value = matrix->implicit_value + scalar;
+        } else {
+            result->implicit_value = matrix->implicit_value * scalar;
+        }
 
         for (unsigned int i = 0; i < matrix->nnz; i++) {
             result->values[i] = matrix->values[i];
             result->col_index[i] = matrix->col_index[i];
-            result->values[i] += scalar;
+            if (op == ADD_OP) {
+                result->values[i] += scalar;
+            } else {
+                result->values[i] *= scalar;
+            }
         }
         for (unsigned int i = 0; i <= matrix->nrow; i++) {
             result->row_ptr[i] = matrix->row_ptr[i];
         }
     } else {
         matrix->implicit_value = matrix->implicit_value + scalar;
-        for (unsigned int i = 0; i < matrix->nnz; i++) {
-            matrix->values[i] += scalar;
+        if (op == ADD_OP) {
+            for (unsigned int i = 0; i < matrix->nnz; i++) {
+                matrix->values[i] += scalar;
+            }
+        } else {
+            for (unsigned int i = 0; i < matrix->nnz; i++) {
+                matrix->values[i] *= scalar;
+            }
         }
     }
 
     return 0;
 }
 
-int add_sparse_matrices(CSRStruct *result, const CSRStruct *A, const CSRStruct *B) {
+int op_sparse_matrices(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int op) {
     if (A->nrow != B->nrow || A->ncol != B->ncol) return -1;
 
     int *row_ptr = (int *)calloc(A->nrow + 1, sizeof(int));
@@ -486,7 +532,11 @@ int add_sparse_matrices(CSRStruct *result, const CSRStruct *A, const CSRStruct *
                 col_index[pos] = B->col_index[b_start];
                 b_start++;
             } else {
-                values[pos] = A->values[a_start] + B->values[b_start];
+                if (op == ADD_OP) {
+                    values[pos] = A->values[a_start] + B->values[b_start];
+                } else {
+                    values[pos] = A->values[a_start] * B->values[b_start];
+                }
                 col_index[pos] = A->col_index[a_start];
                 a_start++;
                 b_start++;
@@ -517,7 +567,33 @@ int add_sparse_matrices(CSRStruct *result, const CSRStruct *A, const CSRStruct *
     result->nnz = pos;
     result->nrow = A->nrow;
     result->ncol = A->ncol;
-    result->implicit_value = A->implicit_value + B->implicit_value;
+    if (op == ADD_OP) {
+        result->implicit_value = A->implicit_value + B->implicit_value;
+    } else {
+        result->implicit_value = A->implicit_value * B->implicit_value;
+    }
 
     return 0;
+}
+
+//=====================================================================
+// Element-wise addition
+//=====================================================================
+int add_scalar_to_sparse_matrix(CSRStruct *result, CSRStruct *matrix, double scalar, int clone) {
+    return op_scalar_to_sparse_matrix(result, matrix, scalar, clone, ADD_OP);
+}
+
+int add_sparse_matrices(CSRStruct *result, const CSRStruct *A, const CSRStruct *B) {
+    return op_sparse_matrices(result, A, B, ADD_OP);
+}
+
+//=====================================================================
+// Element-wise multiplication
+//=====================================================================
+int multiply_scalar_to_sparse_matrix(CSRStruct *result, CSRStruct *matrix, double scalar, int clone) {
+    return op_scalar_to_sparse_matrix(result, matrix, scalar, clone, MULT_OP);
+}
+
+int multiply_sparse_matrices(CSRStruct *result, const CSRStruct *A, const CSRStruct *B) {
+    return op_sparse_matrices(result, A, B, MULT_OP);
 }

@@ -1,0 +1,68 @@
+use v6.d;
+
+use lib <. lib>;
+use Math::SparseMatrix::Native;
+use Math::SparseMatrix::Native::Utilities;
+use Test;
+
+my $nrow = 5;
+my $ncol = 8;
+my $density = 0.25;
+my $nnz = ($nrow * $ncol * $density).Int;
+my $seed = 3432;
+
+my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
+my $matrix2 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
+
+
+plan *;
+
+## 1
+isa-ok $matrix1, Math::SparseMatrix::Native::CSRStruct;
+
+## 2
+isa-ok $matrix1, Math::SparseMatrix::Native::CSRStruct;
+
+## 3
+isa-ok $matrix1.add(4.3), Math::SparseMatrix::Native::CSRStruct;
+
+## 4
+isa-ok $matrix1.add($matrix2), Math::SparseMatrix::Native::CSRStruct;
+
+## 5
+is-deeply
+        $matrix1.multiply($matrix2).Array,
+        elementwise-operation($matrix1.Array, $matrix2.Array, &infix:<*>),
+        "Same rules of mult-by-rules";
+
+## 6
+subtest {
+    my $matrix1iv = $matrix1.clone;
+    $matrix1iv.implicit_value = 1.5.Num;
+    my $matrix2iv = $matrix2.clone;
+    $matrix2iv.implicit_value = 2.2.Num;
+    is-deeply
+            $matrix1iv.multiply($matrix2iv).Array,
+            elementwise-operation($matrix1iv.Array, $matrix2iv.Array, &infix:<*>),
+            "Same rules of mult-by-rules";
+    is
+            $matrix1iv.multiply($matrix2iv).implicit_value,
+            $matrix1iv.implicit_value * $matrix2iv.implicit_value,
+            "Implicit value";
+}, "Multiplication with implicit values";
+
+## 7
+subtest {
+    my $matrix1iv = $matrix1.clone;
+    $matrix1iv.implicit_value = 1.5.Num;
+    is-deeply
+            $matrix1iv.multiply($matrix2).Array,
+            elementwise-operation($matrix1iv.Array, $matrix2.Array, &infix:<*>),
+            "Same rules of mult-by-rules";
+    is
+            $matrix1iv.multiply($matrix2).implicit_value,
+            0,
+            "Implicit value";
+}, "Multiplication with non-zero implicit value of one of the matrices";
+
+done-testing;

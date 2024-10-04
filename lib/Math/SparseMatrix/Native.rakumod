@@ -54,6 +54,12 @@ class CSRStruct is repr('CStruct') {
     sub add_sparse_matrices(CSRStruct is rw, CSRStruct, CSRStruct --> int32)
             is native($library) {*}
 
+    sub add_pattern(CSRStruct is rw, CSRStruct, CSRStruct --> int32)
+            is native($library) {*}
+
+    sub add_numeric(CSRStruct is rw, CSRStruct, CSRStruct --> int32)
+            is native($library) {*}
+
     sub multiply_scalar_to_sparse_matrix(CSRStruct is rw, CSRStruct $matrix, num64 $scalar, int32 $clone --> int32)
             is native($library) {*}
 
@@ -81,7 +87,7 @@ class CSRStruct is repr('CStruct') {
                 self.values[$i] = $values[$i].Num;
                 self.col_index[$i] = $col_index[$i];
             }
-            for ^$nrow -> $i {
+            for 0..$nrow -> $i {
                 self.row_ptr[$i] = $row_ptr[$i].Int
             }
         }
@@ -271,9 +277,21 @@ class CSRStruct is repr('CStruct') {
         }
     }
 
+    #`[
     multi method add(CSRStruct $other) {
         my $target = CSRStruct.new();
         my $res = add_sparse_matrices($target, self, $other);
+        return $target;
+    }
+    ]
+
+    multi method add(CSRStruct $other) {
+        my $target = CSRStruct.new();
+        my $res = do if $!implicit_value || $other.implicit_value {
+            add_sparse_matrices($target, self, $other);
+        } else {
+            add_numeric($target, self, $other);
+        }
         return $target;
     }
 

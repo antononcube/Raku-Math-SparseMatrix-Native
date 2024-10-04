@@ -577,12 +577,13 @@ int op_scalar_to_sparse_matrix(CSRStruct *result, CSRStruct *matrix, double scal
             result->row_ptr[i] = matrix->row_ptr[i];
         }
     } else {
-        matrix->implicit_value = matrix->implicit_value + scalar;
         if (op == ADD_OP) {
+            matrix->implicit_value = matrix->implicit_value + scalar;
             for (unsigned int i = 0; i < matrix->nnz; i++) {
                 matrix->values[i] += scalar;
             }
         } else {
+            matrix->implicit_value = matrix->implicit_value * scalar;
             for (unsigned int i = 0; i < matrix->nnz; i++) {
                 matrix->values[i] *= scalar;
             }
@@ -630,14 +631,22 @@ int op_sparse_matrices(CSRStruct *result, const CSRStruct *A, const CSRStruct *B
         }
 
         while (a_start < a_end) {
-            values[pos] = A->values[a_start];
+            if (op == ADD_OP) {
+                values[pos] = A->values[a_start] + B->implicit_value;
+            } else {
+                values[pos] = A->values[a_start] * B->implicit_value;
+            }
             col_index[pos] = A->col_index[a_start];
             a_start++;
             pos++;
         }
 
         while (b_start < b_end) {
-            values[pos] = B->values[b_start];
+            if (op == ADD_OP) {
+                values[pos] = B->values[b_start] + A->implicit_value;
+            } else {
+                values[pos] = B->values[b_start] * A->implicit_value;
+            }
             col_index[pos] = B->col_index[b_start];
             b_start++;
             pos++;

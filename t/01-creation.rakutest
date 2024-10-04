@@ -1,0 +1,41 @@
+use v6.d;
+
+use lib <. lib>;
+use Math::SparseMatrix::Native;
+use Math::SparseMatrix::Native::Utilities;
+use Test;
+
+my $nrow = 5;
+my $ncol = 8;
+my $density = 0.25;
+my $nnz = ($nrow * $ncol * $density).Int;
+my $seed = Whatever;
+
+## 1
+ok Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
+
+## 2
+my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
+my $matrix2 = Math::SparseMatrix::Native::CSRStruct.new.random(nrow => $ncol, ncol => $nrow, :$nnz, :$seed);
+
+.say for $matrix1.Array;
+
+subtest {
+    isa-ok $matrix1, Math::SparseMatrix::Native::CSRStruct:D;
+    isa-ok $matrix2, Math::SparseMatrix::Native::CSRStruct:D;
+}, "Expected types";
+
+## 3
+isa-ok
+        Math::SparseMatrix::Native::CSRStruct.new(dense-matrix => $matrix1.Array),
+        Math::SparseMatrix::Native::CSRStruct:D,
+        "Creation from dense matrix";
+
+## 4
+my $matrix3 = Math::SparseMatrix::Native::CSRStruct.new(dense-matrix => $matrix1.Array);
+is-deeply
+        $matrix3.Array,
+        $matrix1.Array,
+        "Same matrice (random vs dense-array)";
+
+done-testing;

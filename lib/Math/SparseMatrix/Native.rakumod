@@ -211,8 +211,7 @@ class CSRStruct is repr('CStruct') {
         my $vec = CArray[num64].new(@vector);
         my $target = CArray[num64].allocate($!nrow);
         my $res = dot_dense_vector($target, self, $vec);
-        say (:$target);
-        say (target => $target.Array);
+        #return self.new(dense-matrix => $target.Array.map({ [$_,] }), :$!nrow, ncol => 1, nnz => $!nrow, implicit_value => 0);
         return $target.Array;
     }
 

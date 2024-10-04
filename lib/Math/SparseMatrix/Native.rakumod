@@ -29,6 +29,12 @@ class CSRStruct is repr('CStruct') {
     sub random_sparse_matrix(CSRStruct is rw, uint32 $nrow, uint32 $ncol, uint32 $nnz, num64 $implicit_value, uint32 $seed --> int32)
             is native($library) {*}
 
+    sub eqv_sorted_columns(CSRStruct, CSRStruct, num64 --> int32)
+            is native($library) {*}
+
+    sub eqv_general(CSRStruct, CSRStruct, num64 --> int32)
+            is native($library) {*}
+
     sub transpose(CSRStruct is rw, CSRStruct --> int32)
             is native($library) {*}
 
@@ -91,12 +97,14 @@ class CSRStruct is repr('CStruct') {
         my @values;
         my @col-index;
         my @row-ptr = 0;
+        my $nnz = 0;
 
         for @dense-matrix.kv -> $row, @cols {
             for @cols.kv -> $col, $val {
                 if $val != $implicit-value && $row < $nrow && $col < $ncol {
                     @values.push: $val;
                     @col-index.push: $col;
+                    $nnz++;
                 }
             }
             @row-ptr.push: @values.elems;
@@ -105,7 +113,7 @@ class CSRStruct is repr('CStruct') {
         if $nrow > @dense-matrix.elems {
             @row-ptr.append( @row-ptr.tail xx ($nrow - @dense-matrix.elems))
         }
-        self.bless(:@values, col_index => @col-index, row_ptr => @row-ptr, :$nrow, :$ncol, implicit-value => $implicit-value);
+        self.bless(:@values, col_index => @col-index, row_ptr => @row-ptr, :$nrow, :$ncol, :$nnz, implicit_value => $implicit-value);
     }
 
     #----------------------------------------------------------------
@@ -124,6 +132,11 @@ class CSRStruct is repr('CStruct') {
             @result.push(@row);
         }
         return @result;
+    }
+
+    #----------------------------------------------------------------
+    method eqv(CSRStruct $other, Numeric:D :$tol = 1e-14 --> Bool:D) {
+        return eqv_general(self, $other, $tol).so;
     }
 
     #----------------------------------------------------------------

@@ -15,7 +15,7 @@ class CSRStruct is repr('CStruct') {
     has uint32 $.nnz;
     has uint32 $.nrow;
     has uint32 $.ncol;
-    has num64 $.implicit_value;
+    has num64 $.implicit_value is rw;
 
     #----------------------------------------------------------------
     # Bind to the create_sparse_matrix function
@@ -91,7 +91,6 @@ class CSRStruct is repr('CStruct') {
         destroy_sparse_matrix(self);
     }
 
-
     #----------------------------------------------------------------
     multi method new(:$values!, :$col_index, :$row_ptr, :$nnz is copy = 0,
                      UInt:D :$nrow = 0, UInt:D :$ncol = 0,
@@ -124,6 +123,16 @@ class CSRStruct is repr('CStruct') {
         }
         self.bless(:@values, col_index => @col-index, row_ptr => @row-ptr, :$nrow, :$ncol, :$nnz,
                 implicit_value => $implicit-value);
+    }
+
+    #----------------------------------------------------------------
+    # Clone
+    #----------------------------------------------------------------
+    method clone() {
+        self.new(values => $!values.clone,
+                col_index => $!col_index.clone,
+                row_ptr => $!row_ptr.clone,
+                :$!nrow, :$!ncol, :$!nnz, :$!implicit_value);
     }
 
     #----------------------------------------------------------------

@@ -543,6 +543,131 @@ int dot_numeric(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int n
 }
 
 //=====================================================================
+// Addition-pattern (element-wise)
+//=====================================================================
+int add_pattern(CSRStruct *result, CSRStruct *matrix, CSRStruct *other) {
+    if(matrix->nrow != other->nrow || matrix->ncol != other->ncol) {
+        exit(EXIT_FAILURE); // The dimensions of the argument must match the dimensions of the object.
+    }
+
+    int *IC = (int*) calloc(matrix->nrow + 1, sizeof(int));
+    int *JC = (int*) malloc(matrix->nnz * sizeof(int));
+    int *IX = (int*) calloc(matrix->ncol, sizeof(int));
+    int IP = 0;
+
+    for(int i = 0; i < matrix->nrow; i++) {
+        IC[i] = IP;
+        int IAA = matrix->row_ptr[i];
+        int IAB = matrix->row_ptr[i + 1] - 1;
+        if(IAB >= IAA) {
+            for(int jp = IAA; jp <= IAB; jp++) {
+                int j = matrix->col_index[jp];
+                JC[IP++] = j;
+                IX[j] = i + 1;
+            }
+        }
+
+        int IBA = other->row_ptr[i];
+        int IBB = other->row_ptr[i + 1] - 1;
+        if(IBB >= IBA) {
+            for(int jp = IBA; jp <= IBB; jp++) {
+                int j = other->col_index[jp];
+                if(IX[j] != i + 1) {
+                    JC[IP++] = j;
+                }
+            }
+        }
+    }
+
+    IC[matrix->nrow] = IP;
+
+    create_sparse_matrix(result, matrix->nrow, matrix->ncol, IP, 0.0);
+
+    for(int i = 0; i < IP; i++) {
+        result->values[i] = 1.0;
+    }
+
+    for(int i = 0; i <= matrix->nrow; i++) {
+        result->row_ptr[i] = IC[i];
+    }
+
+    for(int i = 0; i < IP; i++) {
+        result->col_index[i] = JC[i];
+    }
+
+    free(IC);
+    free(JC);
+    free(IX);
+
+    return 0;
+}
+
+//=====================================================================
+// Addition-numeric (element-wise)
+//=====================================================================
+int add_numeric(CSRStruct *result, CSRStruct *matrix, CSRStruct *other) {
+    CSRStruct pattern;
+    int err = add_pattern(&pattern, matrix, other);
+
+    double *CN = (double*) calloc(pattern.nnz, sizeof(double));
+    double *X = (double*) calloc(pattern.ncol, sizeof(double));
+
+    for(int i = 0; i < matrix->nrow; i++) {
+        int IH = i + 1;
+        int ICA = pattern.row_ptr[i];
+        int ICB = pattern.row_ptr[IH] - 1;
+
+        if(ICB < ICA) continue;
+
+        for(int ip = ICA; ip <= ICB; ip++) {
+            X[pattern.col_index[ip]] = 0;
+        }
+
+        int IAA = matrix->row_ptr[i];
+        int IAB = matrix->row_ptr[IH] - 1;
+
+        if(IAB >= IAA) {
+            for(int ip = IAA; ip <= IAB; ip++) {
+                X[matrix->col_index[ip]] = matrix->values[ip];
+            }
+        }
+
+        int IBA = other->row_ptr[i];
+        int IBB = other->row_ptr[IH] - 1;
+
+        if(IBB >= IBA) {
+            for(int ip = IBA; ip <= IBB; ip++) {
+                int J = other->col_index[ip];
+                X[J] += other->values[ip];
+            }
+        }
+
+        for(int ip = ICA; ip <= ICB; ip++) {
+            CN[ip] = X[pattern.col_index[ip]];
+        }
+    }
+
+    create_sparse_matrix(result, matrix->nrow, matrix->ncol, pattern.nnz, matrix->implicit_value + other->implicit_value);
+
+    for(int i = 0; i < pattern.nnz; i++) {
+        result->values[i] = CN[i];
+    }
+
+    for(int i = 0; i <= matrix->nrow; i++) {
+        result->row_ptr[i] = pattern.row_ptr[i];
+    }
+
+    for(int i = 0; i < pattern.nnz; i++) {
+        result->col_index[i] = pattern.col_index[i];
+    }
+
+    free(CN);
+    free(X);
+
+    return 0;
+}
+
+//=====================================================================
 // Element-wise generic
 //=====================================================================
 
@@ -610,11 +735,19 @@ int op_sparse_matrices(CSRStruct *result, const CSRStruct *A, const CSRStruct *B
 
         while (a_start < a_end && b_start < b_end) {
             if (A->col_index[a_start] < B->col_index[b_start]) {
-                values[pos] = A->values[a_start];
+                if (op == ADD_OP) {
+                    values[pos] = A->values[a_start] + B->implicit_value;
+                } else {
+                    values[pos] = A->values[a_start] * B->implicit_value;
+                }
                 col_index[pos] = A->col_index[a_start];
                 a_start++;
             } else if (A->col_index[a_start] > B->col_index[b_start]) {
-                values[pos] = B->values[b_start];
+                if (op == ADD_OP) {
+                    values[pos] = B->values[b_start] + A->implicit_value;
+                } else {
+                    values[pos] = B->values[b_start] * A->implicit_value;
+                }
                 col_index[pos] = B->col_index[b_start];
                 b_start++;
             } else {
@@ -657,7 +790,7 @@ int op_sparse_matrices(CSRStruct *result, const CSRStruct *A, const CSRStruct *B
 
     result->values = (double *)realloc(values, pos * sizeof(double));
     result->col_index = (int *)realloc(col_index, pos * sizeof(int));
-    result->row_ptr = row_ptr;
+    result->row_ptr = (int *)realloc(row_ptr, (A->nrow + 1) * sizeof(int));
     result->nnz = pos;
     result->nrow = A->nrow;
     result->ncol = A->ncol;

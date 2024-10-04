@@ -11,8 +11,8 @@ my $density = 0.25;
 my $nnz = ($nrow * $ncol * $density).Int;
 my $seed = Whatever;
 
-my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
-my $matrix2 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
+my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, seed => 323);
+my $matrix2 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, seed => 998);
 
 
 plan *;

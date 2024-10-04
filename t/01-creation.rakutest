@@ -9,7 +9,7 @@ my $nrow = 5;
 my $ncol = 8;
 my $density = 0.25;
 my $nnz = ($nrow * $ncol * $density).Int;
-my $seed = Whatever;
+my $seed = 7834;
 
 ## 1
 ok Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
@@ -17,8 +17,6 @@ ok Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$see
 ## 2
 my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
 my $matrix2 = Math::SparseMatrix::Native::CSRStruct.new.random(nrow => $ncol, ncol => $nrow, :$nnz, :$seed);
-
-.say for $matrix1.Array;
 
 subtest {
     isa-ok $matrix1, Math::SparseMatrix::Native::CSRStruct:D;

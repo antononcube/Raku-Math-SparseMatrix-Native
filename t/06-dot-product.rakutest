@@ -14,8 +14,6 @@ my $seed = 3432;
 my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
 my $matrix2 = Math::SparseMatrix::Native::CSRStruct.new.random(nrow => $ncol, ncol => $nrow, :$nnz, :$seed);
 
-.say for $matrix1.Array;
-
 plan *;
 
 ## 1
@@ -26,7 +24,6 @@ isa-ok $matrix2, Math::SparseMatrix::Native::CSRStruct:D;
 
 ## 3
 my @vec3 = rand xx $ncol;
-say @vec3;
 isa-ok
         $matrix1.dot(@vec3),
         Array:D,
@@ -69,7 +66,6 @@ is
 
 ## 9
 ## Equivalent to the test above, but using Math::SparseMatrix::Native::CSRStruct operations.
-say $res7.add(Math::SparseMatrix::Native::CSRStruct.new(dense-matrix => $dp8).multiply(-1)).Array.map(*.Slip);
 is
         $res7.add(Math::SparseMatrix::Native::CSRStruct.new(dense-matrix => $dp8).multiply(-1)).Array.map(*.Slip)>>.abs.max < 1e-12,
         True,

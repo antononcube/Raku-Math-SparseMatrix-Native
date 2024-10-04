@@ -65,4 +65,11 @@ subtest {
             "Implicit value";
 }, "Multiplication with non-zero implicit value of one of the matrices";
 
+## 8
+subtest {
+    my $m = $matrix1.multiply(3.4);
+    my $a = $matrix1.Array.deepmap({ 3.4 * $_ });
+    is-deeply $m.Array, $a, 'Same dense matrix';
+}, 'Multiplication with a scalar';
+
 done-testing;

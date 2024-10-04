@@ -26,7 +26,8 @@ class CSRStruct is repr('CStruct') {
     sub destroy_sparse_matrix(CSRStruct is rw)
             is native($library) {*}
 
-    sub random_sparse_matrix(CSRStruct is rw, uint32 $nrow, uint32 $ncol, uint32 $nnz, num64 $implicit_value, uint32 $seed --> int32)
+    sub random_sparse_matrix(CSRStruct is rw, uint32 $nrow, uint32 $ncol, uint32 $nnz, num64 $implicit_value,
+                             uint32 $seed --> int32)
             is native($library) {*}
 
     sub eqv_sorted_columns(CSRStruct, CSRStruct, num64 --> int32)
@@ -38,7 +39,7 @@ class CSRStruct is repr('CStruct') {
     sub transpose(CSRStruct is rw, CSRStruct --> int32)
             is native($library) {*}
 
-    sub dot_dense_vector(CArray[num64] is rw, CSRStruct, CArray[num64] --> int32 )
+    sub dot_dense_vector(CArray[num64] is rw, CSRStruct, CArray[num64] --> int32)
             is native($library) {*}
 
     sub dot_pattern(CSRStruct is rw, CSRStruct, CSRStruct, int32 $nnz --> int32)
@@ -60,7 +61,9 @@ class CSRStruct is repr('CStruct') {
             is native($library) {*}
 
     #----------------------------------------------------------------
-    method dimensions() { return ($!nrow, $!ncol); }
+    method dimensions() {
+        return ($!nrow, $!ncol);
+    }
 
     #----------------------------------------------------------------
     submethod BUILD(:$values, :$col_index, :$row_ptr, :$nnz is copy = 0,
@@ -90,6 +93,12 @@ class CSRStruct is repr('CStruct') {
 
 
     #----------------------------------------------------------------
+    multi method new(:$values!, :$col_index, :$row_ptr, :$nnz is copy = 0,
+                     UInt:D :$nrow = 0, UInt:D :$ncol = 0,
+                     Numeric:D :$implicit_value = 0e0) {
+        self.bless(:$values, :$col_index, :$row_ptr, :$nrow, :$ncol, :$nnz, :$implicit_value);
+    }
+
     multi method new(:dense_matrix(:@dense-matrix)! where @dense-matrix ~~ List:D && @dense-matrix.all ~~ List:D,
                      :$nrow is copy = @dense-matrix.elems,
                      :$ncol is copy = @dense-matrix>>.elems.max,
@@ -111,9 +120,10 @@ class CSRStruct is repr('CStruct') {
         }
 
         if $nrow > @dense-matrix.elems {
-            @row-ptr.append( @row-ptr.tail xx ($nrow - @dense-matrix.elems))
+            @row-ptr.append(@row-ptr.tail xx ($nrow - @dense-matrix.elems))
         }
-        self.bless(:@values, col_index => @col-index, row_ptr => @row-ptr, :$nrow, :$ncol, :$nnz, implicit_value => $implicit-value);
+        self.bless(:@values, col_index => @col-index, row_ptr => @row-ptr, :$nrow, :$ncol, :$nnz,
+                implicit_value => $implicit-value);
     }
 
     #----------------------------------------------------------------

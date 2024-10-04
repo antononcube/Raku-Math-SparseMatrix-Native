@@ -118,10 +118,18 @@ class CSRStruct is repr('CStruct') {
             @row-ptr.push: @values.elems;
         }
 
+        # Empty trailing rows
         if $nrow > @dense-matrix.elems {
             @row-ptr.append(@row-ptr.tail xx ($nrow - @dense-matrix.elems))
         }
-        self.bless(:@values, col_index => @col-index, row_ptr => @row-ptr, :$nrow, :$ncol, :$nnz,
+
+        # Consistency with CSR format
+        @row-ptr.append(@row-ptr.tail);
+
+        # Result
+        self.bless(
+                :@values, col_index => @col-index, row_ptr => @row-ptr,
+                :$nrow, :$ncol, :$nnz,
                 implicit_value => $implicit-value);
     }
 
@@ -154,8 +162,23 @@ class CSRStruct is repr('CStruct') {
     }
 
     #----------------------------------------------------------------
-    method eqv(CSRStruct $other, Numeric:D :$tol = 1e-14 --> Bool:D) {
-        return eqv_general(self, $other, $tol).so;
+    method eqv(CSRStruct $other, :$method = Whatever, Numeric:D :$tol = 1e-14 --> Bool:D) {
+        return do given $method {
+
+            when $_.isa(Whatever) || ($_ ~~ Str:D) && $_.lc ∈ <generic general> {
+                eqv_general(self, $other, $tol).so
+            }
+
+            when ($_ ~~ Str:D) && $_.lc ∈ <tr transpose transposing> {
+                my $m1 = self.transpose.transpose;
+                my $m2 = $other.transpose.transpose;
+                eqv_sorted_columns($m1, $m2, $tol).so
+            }
+
+            default {
+                die 'The value of the argument $method is expected to be "generic", "transposing", or Whatever.'
+            }
+        }
     }
 
     #----------------------------------------------------------------

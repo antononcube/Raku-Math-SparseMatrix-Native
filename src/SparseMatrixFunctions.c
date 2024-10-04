@@ -136,13 +136,13 @@ void destroy_sparse_matrix(CSRStruct *matrix) {
 //=====================================================================
 // Equivalence of two CStructs
 //=====================================================================
-int eqv_sorted_columns(CSRStruct *matrix1, CSRStruct *matrix2) {
+int eqv_sorted_columns(CSRStruct *matrix1, CSRStruct *matrix2, double tol) {
     if (matrix1->nrow != matrix2->nrow || matrix1->ncol != matrix2->ncol || matrix1->nnz != matrix2->nnz || matrix1->implicit_value != matrix2->implicit_value) {
         return 0;
     }
 
     for (unsigned int i = 0; i < matrix1->nnz; ++i) {
-        if (matrix1->values[i] != matrix2->values[i] || matrix1->col_index[i] != matrix2->col_index[i]) {
+        if (fabs(matrix1->values[i] - matrix2->values[i]) > tol || matrix1->col_index[i] != matrix2->col_index[i]) {
             return 0;
         }
     }
@@ -156,54 +156,139 @@ int eqv_sorted_columns(CSRStruct *matrix1, CSRStruct *matrix2) {
     return 1;
 }
 
+int eqv_general(CSRStruct *matrix1, CSRStruct *matrix2, double tol) {
+    if (matrix1->nrow != matrix2->nrow || matrix1->ncol != matrix2->ncol || matrix1->nnz != matrix2->nnz) {
+        return 0;
+    }
+
+    if (fabs(matrix1->implicit_value - matrix2->implicit_value) > tol) {
+        return 0;
+    }
+
+    for (unsigned int i = 0; i < matrix1->nrow; ++i) {
+        int start1 = matrix1->row_ptr[i];
+        int end1 = matrix1->row_ptr[i + 1];
+        int start2 = matrix2->row_ptr[i];
+        int end2 = matrix2->row_ptr[i + 1];
+
+        if ((end1 - start1) != (end2 - start2)) {
+            return 0;
+        }
+
+        for (int j = start1; j < end1; ++j) {
+            int found = 0;
+            for (int k = start2; k < end2; ++k) {
+                if (matrix1->col_index[j] == matrix2->col_index[k] &&
+                    fabs(matrix1->values[j] - matrix2->values[k]) <= tol) {
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found) {
+                return 0;
+            }
+        }
+    }
+
+    return 1;
+}
+
 //=====================================================================
-// Random sparse matrix for CStruct
+// Creation from triplets
 //=====================================================================
-int random_sparse_matrix(CSRStruct *matrix, unsigned int nrow, unsigned int ncol, unsigned int nnz, double implicit_value, unsigned int seed) {
-    if (nnz > nrow * ncol) return -1; // More non-zero elements than possible
+int compare_triplets(const void *a, const void *b) {
+    int row_a = ((int *)a)[0];
+    int row_b = ((int *)b)[0];
+    return row_a - row_b;
+}
+
+int create_sparse_matrix_from_triplets(CSRStruct *matrix,
+                                        unsigned int nrow, unsigned int ncol, unsigned int nnz,
+                                        double implicit_value,
+                                        int *rows, int *cols, double *values) {
+    if (!matrix || !rows || !cols || !values) return -1;
+
+    int (*triplets)[3] = malloc(nnz * sizeof(*triplets));
+    if (!triplets) return -1;
+
+    for (unsigned int i = 0; i < nnz; i++) {
+        triplets[i][0] = rows[i];
+        triplets[i][1] = cols[i];
+        triplets[i][2] = i; // Store index for values
+    }
+
+    qsort(triplets, nnz, sizeof(*triplets), compare_triplets);
+
+    if (create_sparse_matrix(matrix, nrow, ncol, nnz, implicit_value) != 0) {
+        free(triplets);
+        return -1;
+    }
 
     matrix->values = (double *)malloc(nnz * sizeof(double));
     matrix->col_index = (int *)malloc(nnz * sizeof(int));
     matrix->row_ptr = (int *)calloc(nrow + 1, sizeof(int));
-    matrix->nnz = nnz;
-    matrix->nrow = nrow;
-    matrix->ncol = ncol;
-    matrix->implicit_value = implicit_value;
 
-    srand(seed);
+    if (!matrix->values || !matrix->col_index || !matrix->row_ptr) {
+        free(matrix->values);
+        free(matrix->col_index);
+        free(matrix->row_ptr);
+        free(triplets);
+        return -1;
+    }
 
-    int *row_col_pairs = (int *)malloc(nnz * 2 * sizeof(int));
-    int count = 0;
-
-    while (count < nnz) {
-        int row = rand() % nrow;
-        int col = rand() % ncol;
-        int is_unique = 1;
-
-        for (int i = 0; i < count; i++) {
-            if (row_col_pairs[2 * i] == row && row_col_pairs[2 * i + 1] == col) {
-                is_unique = 0;
-                break;
-            }
-        }
-
-        if (is_unique) {
-            row_col_pairs[2 * count] = row;
-            row_col_pairs[2 * count + 1] = col;
-            matrix->values[count] = (double)rand() / RAND_MAX;
-            matrix->col_index[count] = col;
-            matrix->row_ptr[row + 1]++;
-            count++;
-        }
+    for (unsigned int i = 0; i < nnz; i++) {
+        int row = triplets[i][0];
+        int col = triplets[i][1];
+        int val_index = triplets[i][2];
+        matrix->values[i] = values[val_index];
+        matrix->col_index[i] = col;
+        matrix->row_ptr[row + 1]++;
     }
 
     for (unsigned int i = 1; i <= nrow; i++) {
         matrix->row_ptr[i] += matrix->row_ptr[i - 1];
     }
 
-    free(row_col_pairs);
+    free(triplets);
     return 0;
 }
+
+//=====================================================================
+// Random sparse matrix for CStruct
+//=====================================================================
+int random_sparse_matrix(CSRStruct *matrix, unsigned int nrow, unsigned int ncol, unsigned int nnz, double implicit_value, unsigned int seed) {
+    srand(seed);
+
+    int *rows = (int *)malloc(nnz * sizeof(int));
+    int *cols = (int *)malloc(nnz * sizeof(int));
+    double *values = (double *)malloc(nnz * sizeof(double));
+
+    int *used = (int *)calloc(nrow * ncol, sizeof(int));
+    unsigned int count = 0;
+
+    while (count < nnz) {
+        int row = rand() % nrow;
+        int col = rand() % ncol;
+        if (!used[row * ncol + col]) {
+            used[row * ncol + col] = 1;
+            rows[count] = row;
+            cols[count] = col;
+            values[count] = (double)rand() / RAND_MAX; // Random value between 0 and 1
+            count++;
+        }
+    }
+
+    free(used);
+
+    int result = create_sparse_matrix_from_triplets(matrix, nrow, ncol, nnz, implicit_value, rows, cols, values);
+
+    free(rows);
+    free(cols);
+    free(values);
+
+    return result;
+}
+
 //=====================================================================
 // Transpose for CStruct
 //=====================================================================

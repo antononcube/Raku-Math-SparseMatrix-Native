@@ -65,7 +65,7 @@ my $dp8 = dense-dot-product($matrix1.Array, $matrix2.Array);
 is
         elementwise-operation($res7.Array, $dp8, &infix:<->).map(*.Slip)>>.abs.max < 1e-12,
         True,
-        "Same matrix";
+        "Same matrix (element-wise operation)";
 
 ## 9
 ## Equivalent to the test above, but using Math::SparseMatrix::Native::CSRStruct operations.
@@ -73,7 +73,7 @@ say $res7.add(Math::SparseMatrix::Native::CSRStruct.new(dense-matrix => $dp8).mu
 is
         $res7.add(Math::SparseMatrix::Native::CSRStruct.new(dense-matrix => $dp8).multiply(-1)).Array.map(*.Slip)>>.abs.max < 1e-12,
         True,
-        "Same matrix";
+        "Same matrix (sparse matrix operations)";
 
 ## 10
 is
@@ -82,12 +82,12 @@ is
         "Matrix-matrix products equivalence";
 
 ## 11
-my $smat11 = Math::SparseMatrix::Native::CSR.new($matrix1);
+my $smat11 = Math::SparseMatrix::Native::CSRStruct.new($matrix1);
 my @vec11 = rand xx $matrix1.columns-count;
-isa-ok $smat11.dot(@vec11), Math::SparseMatrix::Native::CSR:D;
+isa-ok $smat11.dot(@vec11), Math::SparseMatrix::Native::CSRStruct:D;
 
 ## 12
-isa-ok $smat11.dot(rand xx $matrix1.columns-count), Math::SparseMatrix::Native::CSR:D;
+isa-ok $smat11.dot(rand xx $matrix1.columns-count), Math::SparseMatrix::Native::CSRStruct:D;
 
 
 done-testing;

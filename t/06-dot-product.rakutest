@@ -82,12 +82,11 @@ is
         "Matrix-matrix products equivalence";
 
 ## 11
-my $smat11 = Math::SparseMatrix::Native::CSRStruct.new($matrix1);
-my @vec11 = rand xx $matrix1.columns-count;
-isa-ok $smat11.dot(@vec11), Math::SparseMatrix::Native::CSRStruct:D;
+my $smat11 = $matrix1.clone;
+my @vec11 = rand xx $matrix1.ncol;
+isa-ok $smat11.dot(@vec11), Array:D;
 
 ## 12
-isa-ok $smat11.dot(rand xx $matrix1.columns-count), Math::SparseMatrix::Native::CSRStruct:D;
-
+isa-ok $smat11.dot(rand xx $matrix1.ncol), Array:D;
 
 done-testing;

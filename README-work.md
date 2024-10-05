@@ -1,7 +1,7 @@
 # Math::SparseMatrix::Native
 
-[![Actions Status](https://github.com/antononcube/Raku-SparseMatrix-Native/actions/workflows/linux.yml/badge.svg)](https://github.com/antononcube/Raku-SparseMatrix-Native/actions)
-[![Actions Status](https://github.com/antononcube/Raku-SparseMatrix-Native/actions/workflows/macos.yml/badge.svg)](https://github.com/antononcube/Raku-SparseMatrix-Native/actions)
+[![Actions Status](https://github.com/antononcube/Raku-Math-SparseMatrix-Native/actions/workflows/linux.yml/badge.svg)](https://github.com/antononcube/Raku-Math-SparseMatrix-Native/actions)
+[![Actions Status](https://github.com/antononcube/Raku-Math-SparseMatrix-Native/actions/workflows/macos.yml/badge.svg)](https://github.com/antononcube/Raku-Math-SparseMatrix-Native/actions)
 
 [![License: Artistic-2.0](https://img.shields.io/badge/License-Artistic%202.0-0298c3.svg)](https://opensource.org/licenses/Artistic-2.0)
 
@@ -11,6 +11,44 @@ Raku package with sparse matrix algebra functions implemented in C.
 There are several reasons for this: 
 (i) lack of appropriate documentation to sparse linear algebra in C,
 (i) using dense matrices for sparse matrix computations with its older LAPACK interface libraries.
+
+------
+
+## Usage examples
+
+Make two random -- relatively large -- sparse matrices:
+
+```perl6
+use Math::SparseMatrix::Native;
+use Math::SparseMatrix::Native::Utilities;
+
+my $nrow = 1000;
+my $ncol = 10_000;
+my $density = 0.005;
+my $nnz = ($nrow * $ncol * $density).Int;
+my $seed = 3432;
+
+my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
+my $matrix2 = Math::SparseMatrix::Native::CSRStruct.new.random(nrow => $ncol, ncol => $nrow, :$nnz, :$seed);
+
+say (:$matrix1);
+say (:$matrix2);
+```
+
+**Remark:** Compare the dimensions, densities, and the number of "specified elements" in the gists. 
+
+Here are 100 dot-products of those matrices (with timings):
+
+```perl6
+my $tstart=now;
+my $n = 100;
+for ^$n {
+    $matrix1.dot($matrix2)
+}
+my $tend=now;
+say "Total time : {$tend - $tstart}";
+say "Mean time  : {($tend - $tstart)/$n}"
+```
 
 ------
 

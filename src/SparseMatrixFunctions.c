@@ -486,11 +486,16 @@ int dot_numeric(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int n
     int err = dot_pattern(&pattern, A, B, nnz);
     if (err) { return err; }
 
-    int *IC = pattern.row_ptr;
-    int *JC = (int *)calloc(pattern.nnz, sizeof(int));
+    int *IC = (int *)malloc((pattern.nrow + 1) * sizeof(int));
+    for (int i = 0; i <= pattern.nrow; ++i) {
+        IC[i] = pattern.row_ptr[i];
+    }
+
+    int *JC = (int *)malloc(pattern.nnz * sizeof(int));
     for (int i = 0; i < pattern.nnz; ++i) {
         JC[i] = pattern.col_index[i];
     }
+
     int *IB = B->row_ptr;
     int *JB = B->col_index;
     double *BN = B->values;
@@ -532,14 +537,13 @@ int dot_numeric(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int n
     result->values = result_values;
     result->col_index = JC;
     result->row_ptr = IC;
-    result->nnz = pattern.row_ptr[pattern.nrow];
+    result->nnz = pattern.nnz;
     result->nrow = A->nrow;
     result->ncol = B->ncol;
     result->implicit_value = 0.0;
 
     free(X);
-    free(pattern.col_index);
-    free(pattern.values);
+    destroy_sparse_matrix(&pattern);
     return 0;
 }
 
@@ -548,7 +552,8 @@ int dot_numeric(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int n
 //=====================================================================
 int add_pattern(CSRStruct *result, CSRStruct *matrix, CSRStruct *other) {
     if(matrix->nrow != other->nrow || matrix->ncol != other->ncol) {
-        exit(EXIT_FAILURE); // The dimensions of the argument must match the dimensions of the object.
+        // The dimensions of the argument must match the dimensions of the object.
+        return EXIT_FAILURE;
     }
 
     int *IC = (int*) calloc(matrix->nrow + 1, sizeof(int));
@@ -582,6 +587,7 @@ int add_pattern(CSRStruct *result, CSRStruct *matrix, CSRStruct *other) {
 
     IC[matrix->nrow] = IP;
 
+    //destroy_sparse_matrix(result);
     create_sparse_matrix(result, matrix->nrow, matrix->ncol, IP, 0.0);
 
     for(int i = 0; i < IP; i++) {
@@ -649,6 +655,7 @@ int add_numeric(CSRStruct *result, CSRStruct *matrix, CSRStruct *other, int op) 
         }
     }
 
+    destroy_sparse_matrix(result);
     create_sparse_matrix(result, matrix->nrow, matrix->ncol, pattern.nnz, matrix->implicit_value + other->implicit_value);
 
     for(int i = 0; i < pattern.nnz; i++) {

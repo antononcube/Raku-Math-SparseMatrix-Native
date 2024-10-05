@@ -1,0 +1,70 @@
+use v6.d;
+
+#use lib <. lib>;
+use Math::SparseMatrix::Native;
+use Math::SparseMatrix::Native::Utilities;
+use Test;
+
+my $nrow = 5;
+my $ncol = 8;
+my $density = 0.25;
+my $nnz = ($nrow * $ncol * $density).Int;
+my $seed = 7834;
+
+my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
+
+plan *;
+
+## 1
+isa-ok
+        $matrix1,
+        Math::SparseMatrix::Native::CSRStruct,
+        "Expected type after creation";
+
+## 2
+subtest {
+    isa-ok $matrix1.Array, Array;
+    is $matrix1.Array.all ~~ Array, True;
+    is min($matrix1.Array>>.elems), max($matrix1.Array>>.elems);
+}, "All arrays of .Array have the same length";
+
+## 3
+subtest {
+    my @arr = $matrix1.Array;
+    my @v1 = ((^@arr.elems) X (^@arr.head.elems)).map({ @arr[$_.head][$_.tail] });
+    my @v2 = ((^@arr.elems) X (^@arr.head.elems)).map({ $matrix1.value-at(|$_) });
+    is-deeply @v1, @v2;
+}, "All elements are the same";
+
+## 4
+subtest {
+    isa-ok $matrix1.Hash, Map:D;
+    my @expectedKeys = <specified-elements dimensions default density rules>;
+    is ($matrix1.Hash.keys (&) @expectedKeys).elems, @expectedKeys.elems;
+}, 'Hash representation';
+
+## 5
+subtest {
+    ok $matrix1.gist;
+    isa-ok $matrix1.Str, Str:D;
+    is $matrix1.Str.starts-with('Math::SparseMatrix::Native::CSRStruct('), True;
+
+}, "Gist and Str";
+
+## 6
+subtest {
+    ok $matrix1.tuples;
+    isa-ok $matrix1.tuples, Array;
+    is $matrix1.tuples.all ~~ List:D, True;
+    is min($matrix1.tuples>>.elems) == max($matrix1.tuples>>.elems) == 3, True;
+    is $matrix1.tuples(:dataset).all ~~ Map:D, True;
+}, "To tuples";
+
+## 7
+# I put this test here because .eqv() uses .rules().
+is
+        $matrix1.eqv($matrix1.transpose.transpose),
+        True,
+        "Same matrix after transposing twice";
+
+done-testing;

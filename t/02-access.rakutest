@@ -1,0 +1,83 @@
+use v6.d;
+
+#use lib <. lib>;
+use Math::SparseMatrix::Native;
+use Math::SparseMatrix::Native::Utilities;
+use Test;
+
+my $nrow = 5;
+my $ncol = 8;
+my $density = 0.25;
+my $nnz = ($nrow * $ncol * $density).Int;
+my $seed = 7834;
+
+my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
+
+plan *;
+
+## 1
+isa-ok
+        $matrix1,
+        Math::SparseMatrix::Native::CSRStruct,
+        "Expected type after creation";
+
+## 2
+is
+        $matrix1.elems,
+        $nrow,
+        "Expected number of elements";
+
+## 3
+isa-ok $matrix1.value-at(2, 6), Numeric:D;
+
+## 4
+my @rules4 = $matrix1.rules;
+is
+        ([&&] |@rules4.map({ $matrix1.value-at(|$_.key) == $_.value })),
+        True,
+        'Same values from .rules and .value-at';
+
+## 5
+my $rowInd5 = 2;
+isa-ok
+        $matrix1.row-at($rowInd5),
+        Math::SparseMatrix::Native::CSRStruct,
+        "Expected type of row-at";
+
+## 6
+my @rules6 = $matrix1.rules.grep({ $_.key.head == $rowInd5 }).map({ (0, $_.key.tail) => $_.value });
+is-deeply
+        $matrix1.row-at($rowInd5).rules.Hash,
+        @rules6.Hash,
+        'Same values from .rules and .row-at';
+
+## 7
+my $colInd7 = 3;
+isa-ok $matrix1.column-at($colInd7), Math::SparseMatrix::Native::CSRStruct;
+
+## 8
+my $matrix8 = $matrix1.column-at($colInd7);
+is-deeply
+        (^$nrow).map({ $matrix8.value-at($_, 0) }).List,
+        (^$nrow).map({ $matrix1.value-at($_, $colInd7) }).List,
+        'Same value-at values for .column-at';
+
+## 9
+ok $matrix1[2];
+
+## 10
+is-deeply $matrix1[2], $matrix1.row-at(2);
+
+## 11
+#$matrix1.print;
+#say '-' x 120;
+#$matrix1[2, 3, 1].print;
+ok $matrix1[2, 3, 1];
+
+## 12
+#is $matrix1[3;2], $matrix1.value-at(3, 2);
+
+## 13
+#is $matrix1[^3;2], $matrix1[0, 1, 2].column-at(2);
+
+done-testing;

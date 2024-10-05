@@ -44,7 +44,7 @@ subtest {
     is-deeply
             $matrix1iv.multiply($matrix2iv).Array,
             elementwise-operation($matrix1iv.Array, $matrix2iv.Array, &infix:<*>),
-            "Same rules of mult-by-rules";
+            "Same dense matrix";
     is
             $matrix1iv.multiply($matrix2iv).implicit_value,
             $matrix1iv.implicit_value * $matrix2iv.implicit_value,
@@ -58,7 +58,7 @@ subtest {
     is-deeply
             $matrix1iv.multiply($matrix2).Array,
             elementwise-operation($matrix1iv.Array, $matrix2.Array, &infix:<*>),
-            "Same rules of mult-by-rules";
+            "Same dense matrix";
     is
             $matrix1iv.multiply($matrix2).implicit_value,
             0,

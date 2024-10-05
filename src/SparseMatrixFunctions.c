@@ -663,6 +663,7 @@ int add_numeric(CSRStruct *result, CSRStruct *matrix, CSRStruct *other, int op) 
         result->col_index[i] = pattern.col_index[i];
     }
 
+    destroy_sparse_matrix(&pattern);
     free(CN);
     free(X);
 

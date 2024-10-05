@@ -17,7 +17,9 @@ class CSRStruct is repr('CStruct') {
     has int32 $.ncol;
     has num64 $.implicit_value is rw;
 
-    #----------------------------------------------------------------
+    #=================================================================
+    # Native interface
+    #=================================================================
     # Bind to the create_sparse_matrix function
     sub create_sparse_matrix(CSRStruct is rw, int32 $nrow, int32 $ncol, int32 $nnz, num64 $implicit_value --> int32)
             is native($library) {*}
@@ -66,12 +68,9 @@ class CSRStruct is repr('CStruct') {
     sub multiply_sparse_matrices(CSRStruct is rw, CSRStruct, CSRStruct --> int32)
             is native($library) {*}
 
-    #----------------------------------------------------------------
-    method dimensions() {
-        return ($!nrow, $!ncol);
-    }
-
-    #----------------------------------------------------------------
+    #=================================================================
+    # Creators
+    #=================================================================--
     submethod BUILD(:$values, :$col_index, :$row_ptr, :$nnz is copy = 0,
                     UInt:D :$nrow = 0, UInt:D :$ncol = 0,
                     Numeric:D :$implicit_value = 0e0) {
@@ -139,9 +138,9 @@ class CSRStruct is repr('CStruct') {
                 implicit_value => $implicit-value);
     }
 
-    #----------------------------------------------------------------
+    #=================================================================
     # Clone
-    #----------------------------------------------------------------
+    #=================================================================
     method clone() {
         self.new(values => $!values.clone,
                 col_index => $!col_index.clone,
@@ -149,25 +148,9 @@ class CSRStruct is repr('CStruct') {
                 :$!nrow, :$!ncol, :$!nnz, :$!implicit_value);
     }
 
-    #----------------------------------------------------------------
-    # Dense array
-    #----------------------------------------------------------------
-    #| (Dense) array of arrays representation.
-    #| C<:$implicit-value> -- Implicit value to use.
-    method Array(:i(:iv(:$implicit-value)) is copy = Whatever) {
-        if $implicit-value.isa(Whatever) { $implicit-value = $!implicit_value }
-        my @result;
-        for ^$!nrow -> $i {
-            my @row = ($implicit-value xx $!ncol);
-            for $!row_ptr[$i] ..^ $!row_ptr[$i + 1] -> $j {
-                @row[$!col_index[$j]] = $!values[$j];
-            }
-            @result.push(@row);
-        }
-        return @result;
-    }
-
-    #----------------------------------------------------------------
+    #=================================================================
+    # Equivalence
+    #=================================================================
     method eqv(CSRStruct $other, :$method = Whatever, Numeric:D :$tol = 1e-14 --> Bool:D) {
         return do given $method {
 
@@ -187,7 +170,167 @@ class CSRStruct is repr('CStruct') {
         }
     }
 
-    #----------------------------------------------------------------
+    #=================================================================
+    # Access
+    #=================================================================
+    method elems(::?CLASS:D:) {
+        return $!nrow;
+    }
+
+    method value-at(Int:D $row, Int:D $col) {
+        for $!row_ptr[$row] ..^ $!row_ptr[$row + 1] -> $ip {
+            return $!values[$ip] if $!col_index[$ip] == $col;
+        }
+        return $!implicit_value;
+    }
+
+    method row-at(Int:D $row --> Math::SparseMatrix::Native::CSRStruct) {
+        my @values;
+        my @row_ptr = copy-to-array($!row_ptr, $!nrow + 1);
+        my @col_index;
+
+        for @row_ptr[$row] ..^ @row_ptr[$row + 1] -> $ip {
+            @values.push($!values[$ip]);
+            @col_index.push($!col_index[$ip]);
+        }
+
+        @row_ptr = [0, @values.elems];
+        return Math::SparseMatrix::Native::CSRStruct.new(
+                :@values,
+                :@col_index,
+                :@row_ptr,
+                nrow => 1,
+                nnz => @values.elems,
+                :$!ncol,
+                :$!implicit_value
+                );
+    }
+
+    method row-slice(*@indexes) {
+        die 'The indexes are expected to be non-negative integers.'
+        unless (@indexes.all ~~ Int:D) && min(@indexes) ≥ 0;
+
+        my @mats = @indexes.map({ self.row-at($_) });
+        my $res = @mats.head;
+        for @mats.tail(*-1) -> $m {
+            $res = $res.row-bind($m)
+        }
+        return $res;
+    }
+
+    method column-at(Int:D $col --> Math::SparseMatrix::Native::CSRStruct) {
+        # Not effective, but very quick to implement.
+        return self.transpose.row-at($col).transpose;
+    }
+
+    method AT-POS(*@index) {
+        if @index.elems == 1 {
+            return self.row-at(@index.head);
+        }
+        die "Only one index is expected.";
+    }
+
+    #=================================================================
+    # Rules and tuples
+    #=================================================================
+    # These are the same or very similar to Math::SparseMatrix::CSR
+    #| Rules in the for C<(row, column) => value>.
+    method rules() {
+        my @rules;
+        my @row-ptr = copy-to-array($!row_ptr, $!nrow + 1);
+        my @col-index = copy-to-array($!col_index, $!nnz);
+        my @values = copy-to-array($!values, $!nnz);
+        for ^$!nrow -> $i {
+            for @row-ptr[$i] ..^ @row-ptr[$i + 1] -> $j {
+                @rules.push(Pair.new(($i, @col-index[$j]), @values[$j]))
+            }
+        }
+        return @rules;
+    }
+
+    #| Tuples (or triplets)
+    method tuples(Bool:D :d(:$dataset) = False) {
+        my @res = self.rules.map({ [|$_.key, $_.value].List }).Array;
+        if $dataset {
+            @res = @res.map({ <i j x>.Array Z=> $_.Array })>>.Hash.Array
+        }
+        return @res;
+    }
+
+    #=================================================================
+    # Info
+    #=================================================================
+    method adjacency-lists() {
+        my @adj-lists;
+        my @row-ptr = copy-to-array($!row_ptr, $!nrow + 1);
+        for @row-ptr.kv -> $i, $ptr {
+            my $next_ptr = $i == @row-ptr.end ?? $!nnz !! @row-ptr[$i + 1];
+            my @list;
+            for $ptr ..^ $next_ptr -> $j {
+                @list.push($!col_index[$j])
+            }
+            @adj-lists.push(@list)
+        }
+        return @adj-lists;
+    }
+
+    method column-indices() {
+        return copy-to-array($!col_index, $!nnz);
+    }
+
+    method columns-count() {
+        return $!ncol;
+    }
+
+    method density() {
+        return $!nnz / ($!nrow * $!ncol);
+    }
+
+    method dimensions() {
+        return ($!nrow, $!ncol);
+    }
+
+    method explicit-length() {
+        return $!nnz;
+    }
+
+    method explicit-positions() {
+        return self.rules.keys;
+    }
+
+    method explicit-values() {
+        return copy-to-array($!values, $!nnz);
+    }
+
+    method row-pointers() {
+        return copy-to-array($!row_ptr, $!nrow + 1);
+    }
+
+    method rows-count() {
+        return $!nrow;
+    }
+
+    #=================================================================
+    # Dense array
+    #=================================================================
+    #| (Dense) array of arrays representation.
+    #| C<:$implicit-value> -- Implicit value to use.
+    method Array(:i(:iv(:$implicit-value)) is copy = Whatever) {
+        if $implicit-value.isa(Whatever) { $implicit-value = $!implicit_value }
+        my @result;
+        for ^$!nrow -> $i {
+            my @row = ($implicit-value xx $!ncol);
+            for $!row_ptr[$i] ..^ $!row_ptr[$i + 1] -> $j {
+                @row[$!col_index[$j]] = $!values[$j];
+            }
+            @result.push(@row);
+        }
+        return @result;
+    }
+
+    #=================================================================
+    # Random matrix creation
+    #=================================================================
     multi method random(
             UInt:D $nrow,
             UInt:D $ncol,
@@ -223,7 +366,9 @@ class CSRStruct is repr('CStruct') {
         return self;
     }
 
-    #----------------------------------------------------------------
+    #=================================================================
+    # Transpose
+    #=================================================================
     method transpose() {
         my $target = CSRStruct.new(
                 values => Nil, col_index => Nil, col_index => Nil,
@@ -232,7 +377,9 @@ class CSRStruct is repr('CStruct') {
         return $target;
     }
 
-    #----------------------------------------------------------------
+    #=================================================================
+    # Dot product
+    #=================================================================
     # Matrix-dense-vector
     multi method dot(@vector) {
         die "If the first argument is a vector, then it is expected to be numeric, with length that matches the columns of the sparse matrix."
@@ -263,7 +410,9 @@ class CSRStruct is repr('CStruct') {
         return $target;
     }
 
-    #----------------------------------------------------------------
+    #=================================================================
+    # Addition
+    #=================================================================
     multi method add(Numeric:D $a, Bool:D :$clone = True) {
         if $clone {
             my $target = CSRStruct.new(
@@ -297,7 +446,9 @@ class CSRStruct is repr('CStruct') {
         return $target;
     }
 
-    #----------------------------------------------------------------
+    #=================================================================
+    # Multiplication
+    #=================================================================
     multi method multiply(Numeric:D $a, Bool:D :$clone = True) {
         if $clone {
             my $target = CSRStruct.new(
@@ -319,7 +470,9 @@ class CSRStruct is repr('CStruct') {
         return $target;
     }
 
-    #----------------------------------------------------------------
+    #=================================================================
+    # Simple print
+    #=================================================================
     # Method to display/print the sparse matrix
     method print() {
         for ^$!nrow -> $i {
@@ -329,5 +482,31 @@ class CSRStruct is repr('CStruct') {
             }
         }
         say "Implicit value: ", $!implicit_value;
+    }
+
+    #=================================================================
+    # Representation
+    #=================================================================
+    #| To Hash
+    multi method Hash(::?CLASS:D:-->Hash) {
+        return
+                {
+                    specified-elements => self.explicit-length,
+                    dimensions => ($!nrow, $!ncol),
+                    default => $!implicit_value,
+                    density => self.density,
+                    rules => self.rules
+                };
+    }
+
+    #| To string
+    multi method Str(::?CLASS:D:-->Str) {
+        return self.gist;
+    }
+
+    #| To gist
+    multi method gist(::?CLASS:D:-->Str) {
+        return 'Math::SparseMatrix::Native::CSRStruct' ~ (specified-elements => self.explicit-length, dimensions => ($!nrow, $!ncol),
+                                            density => self.density).List.raku;
     }
 }

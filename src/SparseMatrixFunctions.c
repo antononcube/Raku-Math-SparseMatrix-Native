@@ -603,9 +603,9 @@ int add_pattern(CSRStruct *result, CSRStruct *matrix, CSRStruct *other) {
 }
 
 //=====================================================================
-// Addition-numeric (element-wise)
+// Addition numeric
 //=====================================================================
-int add_numeric(CSRStruct *result, CSRStruct *matrix, CSRStruct *other) {
+int add_numeric(CSRStruct *result, CSRStruct *matrix, CSRStruct *other, int op) {
     CSRStruct pattern;
     int err = add_pattern(&pattern, matrix, other);
 
@@ -667,10 +667,14 @@ int add_numeric(CSRStruct *result, CSRStruct *matrix, CSRStruct *other) {
     return 0;
 }
 
+// TBD
+//int multiply_numeric(CSRStruct *result, CSRStruct *matrix, CSRStruct *other) {
+//    return op_numeric(result, matrix, other, MULT_OP);
+//}
+
 //=====================================================================
 // Element-wise generic
 //=====================================================================
-
 #define MULT_OP 101
 #define ADD_OP 102
 
@@ -718,6 +722,9 @@ int op_scalar_to_sparse_matrix(CSRStruct *result, CSRStruct *matrix, double scal
     return 0;
 }
 
+
+// Note that this routine assumes that the column indexes are sorted per row.
+// Hence, in the Raku invoker methods we sort those column indices by calling transpose twice.
 int op_sparse_matrices(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int op) {
     if (A->nrow != B->nrow || A->ncol != B->ncol) return -1;
 

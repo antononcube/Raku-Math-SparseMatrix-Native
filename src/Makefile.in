@@ -5,8 +5,4 @@ clean:
 	rm %DESTDIR%/resources/libraries/%SparseMatrixFunctions%
 
 %DESTDIR%/resources/libraries/%SparseMatrixFunctions%: SparseMatrixFunctions.c
-ifeq ($(shell uname), Darwin)
-	%CC% -shared %CCSHARED% %CCFLAGS% SparseMatrixFunctions.c -o %DESTDIR%/resources/libraries/%SparseMatrixFunctions% -framework Accelerate
-else
 	%CC% -shared %CCSHARED% %CCFLAGS% SparseMatrixFunctions.c -o %DESTDIR%/resources/libraries/%SparseMatrixFunctions%
-endif

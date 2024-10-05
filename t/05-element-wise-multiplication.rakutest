@@ -24,10 +24,10 @@ isa-ok $matrix1, Math::SparseMatrix::Native::CSRStruct;
 isa-ok $matrix1, Math::SparseMatrix::Native::CSRStruct;
 
 ## 3
-isa-ok $matrix1.add(4.3), Math::SparseMatrix::Native::CSRStruct;
+isa-ok $matrix1.multiply(4.3), Math::SparseMatrix::Native::CSRStruct;
 
 ## 4
-isa-ok $matrix1.add($matrix2), Math::SparseMatrix::Native::CSRStruct;
+isa-ok $matrix1.multiply($matrix2), Math::SparseMatrix::Native::CSRStruct;
 
 ## 5
 is-deeply

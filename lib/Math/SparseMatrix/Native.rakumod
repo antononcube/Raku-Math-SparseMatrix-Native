@@ -12,22 +12,22 @@ class CSRStruct is repr('CStruct') {
     has CArray[num64] $.values;
     has CArray[int32] $.col_index;
     has CArray[int32] $.row_ptr;
-    has uint32 $.nnz;
-    has uint32 $.nrow;
-    has uint32 $.ncol;
+    has int32 $.nnz;
+    has int32 $.nrow;
+    has int32 $.ncol;
     has num64 $.implicit_value is rw;
 
     #----------------------------------------------------------------
     # Bind to the create_sparse_matrix function
-    sub create_sparse_matrix(CSRStruct is rw, uint32 $nrow, uint32 $ncol, uint32 $nnz, num64 $implicit_value --> int32)
+    sub create_sparse_matrix(CSRStruct is rw, int32 $nrow, int32 $ncol, int32 $nnz, num64 $implicit_value --> int32)
             is native($library) {*}
 
     # Bind to the destroy_sparse_matrix function
     sub destroy_sparse_matrix(CSRStruct is rw)
             is native($library) {*}
 
-    sub random_sparse_matrix(CSRStruct is rw, uint32 $nrow, uint32 $ncol, uint32 $nnz, num64 $implicit_value,
-                             uint32 $seed --> int32)
+    sub random_sparse_matrix(CSRStruct is rw, int32 $nrow, int32 $ncol, int32 $nnz, num64 $implicit_value,
+                             int32 $seed --> int32)
             is native($library) {*}
 
     sub eqv_sorted_columns(CSRStruct, CSRStruct, num64 --> int32)

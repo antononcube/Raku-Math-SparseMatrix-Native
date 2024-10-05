@@ -9,9 +9,9 @@ typedef struct CSRStruct {
     double *values;
     int *col_index;
     int *row_ptr;
-    unsigned int nnz;
-    unsigned int nrow;
-    unsigned int ncol;
+    int nnz;
+    int nrow;
+    int ncol;
     double implicit_value;
 } CSRStruct;
 
@@ -29,7 +29,7 @@ typedef struct CSRStruct {
  * @note If memory allocation fails for any of the arrays, the corresponding pointers are set to NULL,
  *       and the nnz, nrow, and ncol are set to 0.
  */
-int create_sparse_matrix(CSRStruct *matrix, unsigned int nrow, unsigned int ncol, unsigned int nnz, double implicit_value) {
+int create_sparse_matrix(CSRStruct *matrix, int nrow, int ncol, int nnz, double implicit_value) {
     if (matrix == NULL) {
         return 1;
     }
@@ -141,13 +141,13 @@ int eqv_sorted_columns(CSRStruct *matrix1, CSRStruct *matrix2, double tol) {
         return 0;
     }
 
-    for (unsigned int i = 0; i < matrix1->nnz; ++i) {
+    for (int i = 0; i < matrix1->nnz; ++i) {
         if (fabs(matrix1->values[i] - matrix2->values[i]) > tol || matrix1->col_index[i] != matrix2->col_index[i]) {
             return 0;
         }
     }
 
-    for (unsigned int i = 0; i <= matrix1->nrow; ++i) {
+    for (int i = 0; i <= matrix1->nrow; ++i) {
         if (matrix1->row_ptr[i] != matrix2->row_ptr[i]) {
             return 0;
         }
@@ -165,7 +165,7 @@ int eqv_general(CSRStruct *matrix1, CSRStruct *matrix2, double tol) {
         return 0;
     }
 
-    for (unsigned int i = 0; i < matrix1->nrow; ++i) {
+    for (int i = 0; i < matrix1->nrow; ++i) {
         int start1 = matrix1->row_ptr[i];
         int end1 = matrix1->row_ptr[i + 1];
         int start2 = matrix2->row_ptr[i];
@@ -203,7 +203,7 @@ int compare_triplets(const void *a, const void *b) {
 }
 
 int create_sparse_matrix_from_triplets(CSRStruct *matrix,
-                                        unsigned int nrow, unsigned int ncol, unsigned int nnz,
+                                        int nrow, int ncol, int nnz,
                                         double implicit_value,
                                         int *rows, int *cols, double *values) {
     if (!matrix || !rows || !cols || !values) return -1;
@@ -211,7 +211,7 @@ int create_sparse_matrix_from_triplets(CSRStruct *matrix,
     int (*triplets)[3] = malloc(nnz * sizeof(*triplets));
     if (!triplets) return -1;
 
-    for (unsigned int i = 0; i < nnz; i++) {
+    for (int i = 0; i < nnz; i++) {
         triplets[i][0] = rows[i];
         triplets[i][1] = cols[i];
         triplets[i][2] = i; // Store index for values
@@ -236,7 +236,7 @@ int create_sparse_matrix_from_triplets(CSRStruct *matrix,
         return -1;
     }
 
-    for (unsigned int i = 0; i < nnz; i++) {
+    for (int i = 0; i < nnz; i++) {
         int row = triplets[i][0];
         int col = triplets[i][1];
         int val_index = triplets[i][2];
@@ -245,7 +245,7 @@ int create_sparse_matrix_from_triplets(CSRStruct *matrix,
         matrix->row_ptr[row + 1]++;
     }
 
-    for (unsigned int i = 1; i <= nrow; i++) {
+    for (int i = 1; i <= nrow; i++) {
         matrix->row_ptr[i] += matrix->row_ptr[i - 1];
     }
 
@@ -256,7 +256,7 @@ int create_sparse_matrix_from_triplets(CSRStruct *matrix,
 //=====================================================================
 // Random sparse matrix for CStruct
 //=====================================================================
-int random_sparse_matrix(CSRStruct *matrix, unsigned int nrow, unsigned int ncol, unsigned int nnz, double implicit_value, unsigned int seed) {
+int random_sparse_matrix(CSRStruct *matrix, int nrow, int ncol, int nnz, double implicit_value, int seed) {
     srand(seed);
 
     int *rows = (int *)malloc(nnz * sizeof(int));
@@ -264,7 +264,7 @@ int random_sparse_matrix(CSRStruct *matrix, unsigned int nrow, unsigned int ncol
     double *values = (double *)malloc(nnz * sizeof(double));
 
     int *used = (int *)calloc(nrow * ncol, sizeof(int));
-    unsigned int count = 0;
+    int count = 0;
 
     while (count < nnz) {
         int row = rand() % nrow;
@@ -297,13 +297,13 @@ int transpose(CSRStruct *target, CSRStruct *matrix) {
     int *JAT = (int *)malloc(matrix->nnz * sizeof(int));
     double *ANT = (double *)malloc(matrix->nnz * sizeof(double));
 
-    unsigned int MH = matrix->ncol + 1;
-    unsigned int NH = matrix->nrow + 1;
+    int MH = matrix->ncol + 1;
+    int NH = matrix->nrow + 1;
 
-    unsigned int IAB = matrix->row_ptr[NH - 1];
+    int IAB = matrix->row_ptr[NH - 1];
 
-    for (unsigned int i = 0; i < IAB; ++i) {
-        unsigned int J = matrix->col_index[i] + 2;
+    for (int i = 0; i < IAB; ++i) {
+        int J = matrix->col_index[i] + 2;
         if (J < MH) {
             IAT[J] += 1;
         }
@@ -313,18 +313,18 @@ int transpose(CSRStruct *target, CSRStruct *matrix) {
     IAT[1] = 0;
 
     if (matrix->ncol != 1) {
-        for (unsigned int i = 2; i < MH; ++i) {
+        for (int i = 2; i < MH; ++i) {
             IAT[i] += IAT[i - 1];
         }
     }
 
-    for (unsigned int i = 0; i < matrix->nrow; ++i) {
-        unsigned int IAA = matrix->row_ptr[i];
-        unsigned int IAB = matrix->row_ptr[i + 1];
+    for (int i = 0; i < matrix->nrow; ++i) {
+        int IAA = matrix->row_ptr[i];
+        int IAB = matrix->row_ptr[i + 1];
         if (IAB < IAA) continue;
-        for (unsigned int jp = IAA; jp < IAB; ++jp) {
-            unsigned int J = matrix->col_index[jp] + 1;
-            unsigned int K = IAT[J];
+        for (int jp = IAA; jp < IAB; ++jp) {
+            int J = matrix->col_index[jp] + 1;
+            int K = IAT[J];
             JAT[K] = i;
             ANT[K] = matrix->values[jp];
             IAT[J] = K + 1;
@@ -346,11 +346,11 @@ int transpose(CSRStruct *target, CSRStruct *matrix) {
 // Dot product for CStruct (Matrix-Matrix)
 //=====================================================================
 int dot_dense_vector(double *target, CSRStruct *matrix, double *vector) {
-    for (unsigned int i = 0; i < matrix->nrow; i++) {
+    for (int i = 0; i < matrix->nrow; i++) {
         target[i] = 0.0;
-        unsigned int row_start = matrix->row_ptr[i];
-        unsigned int row_end = matrix->row_ptr[i + 1];
-        for (unsigned int j = row_start; j < row_end; j++) {
+        int row_start = matrix->row_ptr[i];
+        int row_end = matrix->row_ptr[i + 1];
+        for (int j = row_start; j < row_end; j++) {
             target[i] += matrix->values[j] * vector[matrix->col_index[j]];
         }
     }
@@ -400,16 +400,16 @@ int dot_pattern(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int n
     }
 
     if (nnz < 0) {
-        unsigned int dot_nrow = 0;
-        for (unsigned int i = 0; i < A->nrow; ++i) {
+        int dot_nrow = 0;
+        for (int i = 0; i < A->nrow; ++i) {
             if (A->row_ptr[i + 1] > A->row_ptr[i]) {
                 dot_nrow++;
             }
         }
 
-        unsigned int *unique_cols = (unsigned int *)calloc(B->ncol, sizeof(unsigned int));
-        unsigned int dot_ncol = 0;
-        for (unsigned int i = 0; i < B->nnz; ++i) {
+        int *unique_cols = (int *)calloc(B->ncol, sizeof(int));
+        int dot_ncol = 0;
+        for (int i = 0; i < B->nnz; ++i) {
             if (!unique_cols[B->col_index[i]]) {
                 unique_cols[B->col_index[i]] = 1;
                 dot_ncol++;
@@ -430,7 +430,7 @@ int dot_pattern(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int n
     int *IX = (int *)calloc(B->ncol, sizeof(int));
     int IP = 0;
 
-    for (unsigned int i = 0; i < A->nrow; ++i) {
+    for (int i = 0; i < A->nrow; ++i) {
         IC[i] = IP;
         int IAA = A->row_ptr[i];
         int IAB = A->row_ptr[i + 1] - 1;
@@ -485,6 +485,8 @@ int dot_numeric(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int n
 
     CSRStruct pattern;
     int err = dot_pattern(&pattern, A, B, nnz);
+    if (err) { return err; }
+
     int *IC = pattern.row_ptr;
     int *JC = (int *)calloc(pattern.nnz, sizeof(int));
     for (int i = 0; i < pattern.nnz; ++i) {
@@ -497,7 +499,7 @@ int dot_numeric(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int n
     double *result_values = (double *)calloc(pattern.nnz, sizeof(double));
     int IP = 0;
 
-    for (unsigned int i = 0; i < A->nrow; ++i) {
+    for (int i = 0; i < A->nrow; ++i) {
         int ICA = IC[i];
         int ICB = IC[i + 1];
 
@@ -608,6 +610,7 @@ int add_pattern(CSRStruct *result, CSRStruct *matrix, CSRStruct *other) {
 int add_numeric(CSRStruct *result, CSRStruct *matrix, CSRStruct *other, int op) {
     CSRStruct pattern;
     int err = add_pattern(&pattern, matrix, other);
+    if (err) { return err; }
 
     double *CN = (double*) calloc(pattern.nnz, sizeof(double));
     double *X = (double*) calloc(pattern.ncol, sizeof(double));
@@ -693,7 +696,7 @@ int op_scalar_to_sparse_matrix(CSRStruct *result, CSRStruct *matrix, double scal
             result->implicit_value = matrix->implicit_value * scalar;
         }
 
-        for (unsigned int i = 0; i < matrix->nnz; i++) {
+        for (int i = 0; i < matrix->nnz; i++) {
             result->values[i] = matrix->values[i];
             result->col_index[i] = matrix->col_index[i];
             if (op == ADD_OP) {
@@ -702,18 +705,18 @@ int op_scalar_to_sparse_matrix(CSRStruct *result, CSRStruct *matrix, double scal
                 result->values[i] *= scalar;
             }
         }
-        for (unsigned int i = 0; i <= matrix->nrow; i++) {
+        for (int i = 0; i <= matrix->nrow; i++) {
             result->row_ptr[i] = matrix->row_ptr[i];
         }
     } else {
         if (op == ADD_OP) {
             matrix->implicit_value = matrix->implicit_value + scalar;
-            for (unsigned int i = 0; i < matrix->nnz; i++) {
+            for (int i = 0; i < matrix->nnz; i++) {
                 matrix->values[i] += scalar;
             }
         } else {
             matrix->implicit_value = matrix->implicit_value * scalar;
-            for (unsigned int i = 0; i < matrix->nnz; i++) {
+            for (int i = 0; i < matrix->nnz; i++) {
                 matrix->values[i] *= scalar;
             }
         }
@@ -733,12 +736,12 @@ int op_sparse_matrices(CSRStruct *result, const CSRStruct *A, const CSRStruct *B
     double *values = (double *)malloc(nnz_estimate * sizeof(double));
     int *col_index = (int *)malloc(nnz_estimate * sizeof(int));
 
-    unsigned int pos = 0;
-    for (unsigned int i = 0; i < A->nrow; ++i) {
-        unsigned int a_start = A->row_ptr[i];
-        unsigned int a_end = A->row_ptr[i + 1];
-        unsigned int b_start = B->row_ptr[i];
-        unsigned int b_end = B->row_ptr[i + 1];
+    int pos = 0;
+    for (int i = 0; i < A->nrow; ++i) {
+        int a_start = A->row_ptr[i];
+        int a_end = A->row_ptr[i + 1];
+        int b_start = B->row_ptr[i];
+        int b_end = B->row_ptr[i + 1];
 
         while (a_start < a_end && b_start < b_end) {
             if (A->col_index[a_start] < B->col_index[b_start]) {

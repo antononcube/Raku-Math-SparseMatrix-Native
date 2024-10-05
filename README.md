@@ -26,7 +26,7 @@ There are several reasons for this:
   - [X] DONE `add` with another matrix
   - [X] DONE `multiply` with a scalar
   - [X] DONE `multiply` with another matrix
-- [ ] TODO Refactoring
+- [X] DONE Refactoring
   - Consistent use of `unsigned int` or `int` for `row_ptr` and `col_index`.
 - [ ] TODO Adaptation to "Math::SparseMatrix"
   - This package was made in order to have faster computation with "Math::SparseMatrix".

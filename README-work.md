@@ -20,7 +20,7 @@ There are several reasons for this:
     - [X] DONE C-struct representation: data and methods
     - [X] DONE `transpose`
     - [X] DONE `dot-pattern`
-    - [ ] TODO `dot` matrix x dense vector
+    - [X] DONE `dot` matrix x dense vector
     - [X] DONE `dot` (and `dot-numeric`) matrix x matrix
     - [X] DONE `add` with a scalar
     - [X] DONE `add` with another matrix
@@ -34,8 +34,8 @@ There are several reasons for this:
     - Hence, we make an adapter class in "Math::SparseMatrix".
 - [ ] TODO Unit tests
     - [ ] TODO Creation (and destruction)
-    - [ ] TODO Element-wise operations
-    - [ ] TODO Dot product
+    - [X] DONE Element-wise operations
+    - [X] DONE Dot product
 
 ------
 

@@ -288,7 +288,9 @@ class CSRStruct is repr('CStruct') {
     multi method add(CSRStruct $other) {
         my $target = CSRStruct.new();
         my $res = do if $!implicit_value || $other.implicit_value {
-            add_sparse_matrices($target, self, $other);
+            my $m1 = self.transpose.transpose;
+            my $m2 = $other.transpose.transpose;
+            add_sparse_matrices($target, $m1, $m2);
         } else {
             add_numeric($target, self, $other);
         }
@@ -311,7 +313,9 @@ class CSRStruct is repr('CStruct') {
 
     multi method multiply(CSRStruct $other) {
         my $target = CSRStruct.new();
-        my $res = multiply_sparse_matrices($target, self, $other);
+        my $m1 = self.transpose.transpose;
+        my $m2 = $other.transpose.transpose;
+        my $res = multiply_sparse_matrices($target, $m1, $m2);
         return $target;
     }
 

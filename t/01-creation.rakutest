@@ -36,4 +36,20 @@ is-deeply
         $matrix1.Array,
         "Same matrice (random vs dense-array)";
 
+## 5
+subtest {
+    my @rules = (1, 1) => 1, (0, 1) => 3, (3, 4) => -1;
+    ok Math::SparseMatrix::Native::CSRStruct.new(:@rules);
+    my $matrix = Math::SparseMatrix::Native::CSRStruct.new(:@rules);
+    is-deeply $matrix.dimensions, (4, 5);
+    $matrix2 = Math::SparseMatrix::Native::CSRStruct.new(:@rules, :6nrow, :8ncol);
+    is-deeply $matrix2.dimensions, (6, 8);
+    my @dense-matrix = [0, 3, 0, 0, 0], [0, 1, 0, 0, 0], (0 xx 5).Array,  [0, 0, 0, 0, -1];
+    @dense-matrix .= deepmap(*.Num);
+    is-deeply
+            $matrix.Array,
+            @dense-matrix,
+            "Same dense arrays";
+    }, "Creation from rules";
+
 done-testing;

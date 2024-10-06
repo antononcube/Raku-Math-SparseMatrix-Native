@@ -7,10 +7,27 @@
 
 Raku package with sparse matrix algebra functions implemented in C.
 
-**Remark:** Currently, Apple's Accelerate library is _not_ used (if it is available.)
+The package is a "standalone" implementation of sparse matrix functionalities using 
+Compressed Sparse Row (CSR) format. The intent, though, is to use the class `Math::SparseMatrix::Native::CSRStruct`
+provided by this package in the general package 
+["Math::SparseMatrix"](https://github.com/antononcube/Raku-Math-SparseMatrix), [AAp1].
+(See the section "Design" below.)
+
+The core algorithms of the package follow the FORTRAN implementations given in the book
+"Sparse Matrix Technology" by Pissanetzky, [SP1].
+
+This package should be compared -- and likely replaced -- with Raku package(s) interfacing 
+sparse matrix algebra libraries, like, 
+["SuiteSparse"](https://github.com/DrTimothyAldenDavis/SuiteSparse).
+(When/if such Raku packages are implemented.)
+
+**Remark:** This package uses a C implementation based on standard C libraries ("math", "stdio", "stdlib", "string".)
+Hence, it should be cross platform.
+
+**Remark:** Currently, on macOS, Apple's Accelerate library is _not_ used.
 There are several reasons for this: 
 (i) lack of appropriate documentation to sparse linear algebra in C,
-(i) using dense matrices for sparse matrix computations with its older LAPACK interface libraries.
+(i) using dense matrices for sparse matrix computations with its documented, older LAPACK interface libraries.
 
 ------
 
@@ -150,6 +167,12 @@ classDiagram
 ------
 
 ## References
+
+### Books
+
+[SP1] Sergio Pissanetzky, Sparse Matrix Technology, Academic Pr (January 1, 1984), ISBN-10: 0125575807, ISBN-13: 978-0125575805.
+
+### Packages
 
 [AAp1] Anton Antonov,
 [Math::SparseMatrix Raku package](https://github.com/antononcube/Raku-Math-SparseMatrix),

@@ -805,9 +805,9 @@ int op_sparse_matrices(CSRStruct *result, const CSRStruct *A, const CSRStruct *B
         row_ptr[i + 1] = pos;
     }
 
-    result->values = (double *)realloc(values, pos * sizeof(double));
-    result->col_index = (int *)realloc(col_index, pos * sizeof(int));
-    result->row_ptr = (int *)realloc(row_ptr, (A->nrow + 1) * sizeof(int));
+    result->values = values;
+    result->col_index = col_index;
+    result->row_ptr = row_ptr;
     result->nnz = pos;
     result->nrow = A->nrow;
     result->ncol = A->ncol;

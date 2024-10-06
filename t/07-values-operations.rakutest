@@ -1,0 +1,30 @@
+use v6.d;
+
+use lib <. lib>;
+use Math::SparseMatrix::Native;
+use Math::SparseMatrix::Native::Utilities;
+use Test;
+
+my $nrow = 5;
+my $ncol = 8;
+my $density = 0.4;
+my $nnz = ($nrow * $ncol * $density).Int;
+my $seed = 37432;
+
+my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
+
+plan *;
+
+## 1
+isa-ok $matrix1.unitize, Math::SparseMatrix::Native::CSRStruct:D, "unitize type";
+
+## 2
+isa-ok $matrix1.clip(min => 0.2, max => 0.6), Math::SparseMatrix::Native::CSRStruct:D, "clip type";
+
+## 3
+isa-ok $matrix1.round(0.2), Math::SparseMatrix::Native::CSRStruct:D, "round type";
+
+## 4
+isa-ok $matrix1.round(0.2, :clone), Math::SparseMatrix::Native::CSRStruct:D, "round with cloning type";
+
+done-testing;

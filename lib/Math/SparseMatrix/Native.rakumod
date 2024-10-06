@@ -68,6 +68,15 @@ class CSRStruct is repr('CStruct') {
     sub multiply_sparse_matrices(CSRStruct is rw, CSRStruct, CSRStruct --> int32)
             is native($library) {*}
 
+    sub unitize_sparse_matrix(CSRStruct)
+            is native($library) {*}
+
+    sub clip_sparse_matrix(CSRStruct, num64, num64)
+            is native($library) {*}
+
+    sub round_sparse_matrix(CSRStruct, num64)
+            is native($library) {*}
+
     #=================================================================
     # Creators
     #=================================================================--
@@ -499,6 +508,47 @@ class CSRStruct is repr('CStruct') {
         my $m2 = $other.transpose.transpose;
         my $res = multiply_sparse_matrices($target, $m1, $m2);
         return $target;
+    }
+
+    #=================================================================
+    # Unitize
+    #=================================================================
+    #| Unitize the sparse matrix
+    #| C<:$clone> -- Whether to operate in-place.
+    method unitize(Bool:D :$clone = True) {
+        if $clone {
+            return self.clone.unitize(:!clone);
+        }
+        unitize_sparse_matrix(self);
+        return self;
+    }
+
+    #=================================================================
+    # Clip
+    #=================================================================
+    #| Clip the sparse matrix
+    #| C<:$v-min> -- The new min value.
+    #| C<:$v-max> -- The new max value.
+    #| C<:$clone> -- Whether to operate in-place.
+    method clip(Numeric:D :min(:$v-min)!, Numeric:D :max(:$v-max)!, Bool:D :$clone = True) {
+        if $clone {
+            return self.clone.clip(:$v-min, :$v-max, :!clone);
+        }
+        clip_sparse_matrix(self, $v-min.Num, $v-max.Num);
+        return self;
+    }
+
+    #=================================================================
+    # Round
+    #=================================================================
+    #| Round the sparse matrix
+    #| C<:$scale> -- Scale to round to.
+    method round(Numeric:D $scale = 1, Bool:D :$clone = True) {
+        if $clone {
+            return self.clone.round(:$scale, :!clone);
+        }
+        round_sparse_matrix(self, $scale.Num);
+        return self;
     }
 
     #=================================================================

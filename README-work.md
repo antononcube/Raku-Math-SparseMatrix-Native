@@ -54,7 +54,7 @@ say "Mean time  : {($tend - $tstart)/$n}"
 
 ## Design
 
-The primary motivation for implementing this package is need to have _fast_ sparse matrix computations.
+The primary motivation for implementing this package is the need to have _fast_ sparse matrix computations.
 
 - The pure-Raku implemented sparse matrix algorithms in 
 ["Math::SparseMatrix"](https://raku.land/zef:antononcube/Math::SparseMatrix), [AAp1],
@@ -125,7 +125,7 @@ classDiagram
 
 ## TODO
 
-- [ ] TODO Core functionalities
+- [X] DONE Core functionalities
     - [X] DONE C-struct representation: data and methods
     - [X] DONE `transpose`
     - [X] DONE `dot-pattern`
@@ -141,8 +141,9 @@ classDiagram
     - This package was made in order to have faster computation with "Math::SparseMatrix".
     - But it can be self-contained and independent from "Math::SparseMatrix".
     - Hence, we make an adapter class in "Math::SparseMatrix".
-- [ ] TODO Unit tests
-    - [ ] TODO Creation (and destruction)
+- [X] DONE Unit tests
+    - [X] DONE Creation (and destruction)
+    - [X] DONE Access
     - [X] DONE Element-wise operations
     - [X] DONE Dot product
 

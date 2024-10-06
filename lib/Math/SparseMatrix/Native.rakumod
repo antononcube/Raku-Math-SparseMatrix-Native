@@ -103,6 +103,34 @@ class CSRStruct is repr('CStruct') {
         self.bless(:$values, :$col_index, :$row_ptr, :$nrow, :$ncol, :$nnz, :$implicit_value);
     }
 
+    multi method new(:@rules! where @rules.all ~~ Pair:D,
+                     :$nrow is copy = @rules.map(*.key[0]).max + 1,
+                     :$ncol is copy = @rules.map(*.key[1]).max + 1,
+                     Numeric:D :implicit-value(:$implicit_value) = 0e0) {
+        # Same as Math::SparseMatrix::CSR, just using snake_case instead of kebab-case.
+        my %temp;
+        for @rules -> $rule {
+            my ($row, $col) = $rule.key;
+            %temp{$row}{$col} = $rule.value;
+        }
+
+        my @values;
+        my @col_index;
+        my @row_ptr = 0;
+
+        for ^$nrow -> $row {
+            if %temp{$row}:exists {
+                for %temp{$row}.keys.sort -> $col {
+                    @values.push: %temp{$row}{$col}.Num;
+                    @col_index.push: $col.Int;
+                }
+            }
+            @row_ptr.push: @values.elems;
+        }
+
+        self.bless(:@values, :@col_index, :@row_ptr, :$nrow, :$ncol, nnz => @values.elems, :$implicit_value);
+    }
+
     multi method new(:dense_matrix(:@dense-matrix)! where @dense-matrix ~~ List:D && @dense-matrix.all ~~ List:D,
                      :$nrow is copy = @dense-matrix.elems,
                      :$ncol is copy = @dense-matrix>>.elems.max,
@@ -318,10 +346,13 @@ class CSRStruct is repr('CStruct') {
     method Array(:i(:iv(:$implicit-value)) is copy = Whatever) {
         if $implicit-value.isa(Whatever) { $implicit-value = $!implicit_value }
         my @result;
+        my @col-index = copy-to-array($!col_index, $!nnz);
+        my @values = copy-to-array($!values, $!nnz);
+        my @row-ptr = copy-to-array($!row_ptr, $!nrow + 1);
         for ^$!nrow -> $i {
             my @row = ($implicit-value xx $!ncol);
-            for $!row_ptr[$i] ..^ $!row_ptr[$i + 1] -> $j {
-                @row[$!col_index[$j]] = $!values[$j];
+            for @row-ptr[$i] ..^ @row-ptr[$i + 1] -> $j {
+                @row[@col-index[$j]] = @values[$j];
             }
             @result.push(@row);
         }

@@ -52,6 +52,77 @@ say "Mean time  : {($tend - $tstart)/$n}"
 
 ------
 
+## Design
+
+The primary motivation for implementing this package is need to have _fast_ sparse matrix computations.
+
+- The pure-Raku implemented sparse matrix algorithms in 
+["Math::SparseMatrix"](https://raku.land/zef:antononcube/Math::SparseMatrix), [AAp1],
+are too slow. 
+
+- Same algorithms implemented in C (in this package) are ≈100 times faster.  
+
+The `NativeCall` class `Math::SparseMatrix::Native::CSRStruct` has Compressed Sparse Row (CSR) format sparse matrix operations.
+The [Adapter pattern](https://en.wikipedia.org/wiki/Adapter_pattern) is used to include `Math::SparseMatrix::Native::CSRStruct`
+into the `Math::SparseMatrix` hierarchy:
+
+```mermaid
+classDiagram
+    class Abstract["Math::SparseMatrix::Abstract"] {
+        <<abstract>>
+        +value-at()
+        +row-at()
+        +column-at()
+        +row-slice()
+        +AT-POS()
+        +print()
+        +transpose()
+        +add()
+        +multiply()
+        +dot()
+    }
+
+    class CSRStruct {
+        <<C struct>>
+    }
+    
+    class NativeCSR["Math::SparseMatrix::CSR::Native"] {
+        $row_ptr
+        $col_index
+        @values
+        nrow
+        ncol
+        implicit_value
+    }
+
+    class NativeAdapater["Math::SparseMatrix::NativeAdapter"] {
+        +row-ptr
+        +col-index
+        +values
+        +nrow
+        +ncol
+        +implicit-value
+    }    
+    
+    class SparseMatrix["Math::SparseMatrix"] {
+        Abstract core-matrix
+        +AT-POS()
+        +print()
+        +transpose()
+        +add()
+        +multiply()
+        +dot()
+    }
+    
+    NativeAdapater --> Abstract : implements
+    SparseMatrix --> Abstract : Hides actual component class
+    SparseMatrix *--> Abstract
+    NativeAdapater *--> NativeCSR
+    NativeCSR -- CSRStruct : reprents
+```
+
+------
+
 ## TODO
 
 - [ ] TODO Core functionalities

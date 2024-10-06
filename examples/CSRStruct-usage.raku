@@ -19,8 +19,8 @@ sub normalize(Math::SparseMatrix::Native::CSRStruct:D $matrix1) {
 }
 
 
-#my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new().random(nrow => 1000, ncol => 10_000, nnz => 20_000);
-my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new().random(nrow => 6, ncol => 10, nnz => 10);
+my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new().random(nrow => 1000, ncol => 10_000, nnz => 20_000);
+#my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new().random(nrow => 6, ncol => 10, nnz => 10);
 say (nrow => $matrix1.nrow, ncol => $matrix1.ncol, nnz => $matrix1.nnz);
 
 if $matrix1.nnz < 100 { $matrix1.&normalize.print }

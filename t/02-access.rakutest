@@ -1,6 +1,6 @@
 use v6.d;
 
-#use lib <. lib>;
+use lib <. lib>;
 use Math::SparseMatrix::Native;
 use Math::SparseMatrix::Native::Utilities;
 use Test;
@@ -72,12 +72,17 @@ is-deeply $matrix1[2], $matrix1.row-at(2);
 #$matrix1.print;
 #say '-' x 120;
 #$matrix1[2, 3, 1].print;
-ok $matrix1[2, 3, 1];
+ok $matrix1[2, 3, 1], "Multiple positions";
 
 ## 12
-#is $matrix1[3;2], $matrix1.value-at(3, 2);
+ok $matrix1[2].row-bind($matrix1[3]);
 
 ## 13
-#is $matrix1[^3;2], $matrix1[0, 1, 2].column-at(2);
+my $matrix13 = $matrix1[2].row-bind($matrix1[3]);
+say $matrix13;
+is-deeply
+        $matrix13.Array,
+        $matrix1.Array[2, 3].Array,
+        "Same dense array";
 
 done-testing;

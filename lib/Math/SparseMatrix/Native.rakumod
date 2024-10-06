@@ -348,6 +348,43 @@ class CSRStruct is repr('CStruct') {
     }
 
     #=================================================================
+    # Row-bind
+    #=================================================================
+    method row-bind(Math::SparseMatrix::Native::CSRStruct:D $other --> Math::SparseMatrix::Native::CSRStruct:D) {
+        die 'The number of columns of the argument is expected to be equal to the number of columns of the object.'
+        unless $!ncol == $other.ncol;
+
+        die 'The the implicit value of the argument is expected to be same as the explicit value of the object.'
+        unless $!implicit_value == $other.implicit_value;
+
+        my @values = copy-to-array($!values, $!nnz).append(copy-to-array($other.values, $other.nnz));
+        my @col_index = copy-to-array($!col_index, $!nnz).append(copy-to-array($other.col_index, $other.nnz));
+        my @other_row_ptr = copy-to-array($other.row_ptr, $other.nrow + 1).tail(*- 1).map({ $_ + $!nnz });
+        my @row_ptr = copy-to-array($!row_ptr, $!nrow + 1).append(@other_row_ptr);
+
+        return Math::SparseMatrix::Native::CSRStruct.new(
+                :@values,
+                :@col_index,
+                :@row_ptr,
+                nrow => $!nrow + $other.nrow,
+                :$!ncol,
+                nnz => $!nnz + $other.nnz,
+                :$!implicit_value
+                );
+    }
+
+    #=================================================================
+    # Column-bind
+    #=================================================================
+    method column-bind(Math::SparseMatrix::Native::CSRStruct:D $other --> Math::SparseMatrix::Native::CSRStruct:D) {
+        die 'The number of rows of the argument is expected to be equal to the number of rows of the object.'
+        unless $!nrow == $other.nrow;
+
+        # Not very effective, but quick to implement
+        return self.transpose.row-bind($other.transpose).transpose;
+    }
+
+    #=================================================================
     # Dense array
     #=================================================================
     #| (Dense) array of arrays representation.

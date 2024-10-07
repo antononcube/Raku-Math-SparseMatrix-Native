@@ -846,15 +846,13 @@ int multiply_sparse_matrices(CSRStruct *result, const CSRStruct *A, const CSRStr
 // Values operations
 //=====================================================================
 void unitize_sparse_matrix(CSRStruct *matrix) {
-    unsigned int i;
-    for (i = 0; i < matrix->nnz; i++) {
+    for (int i = 0; i < matrix->nnz; i++) {
         matrix->values[i] = (matrix->values[i] != 0) ? 1 : 0;
     }
 }
 
 void clip_sparse_matrix(CSRStruct *matrix, double v_min, double v_max) {
-    unsigned int i;
-    for (i = 0; i < matrix->nnz; i++) {
+    for (int i = 0; i < matrix->nnz; i++) {
         if (matrix->values[i] < v_min) {
             matrix->values[i] = v_min;
         } else if (matrix->values[i] > v_max) {
@@ -864,8 +862,7 @@ void clip_sparse_matrix(CSRStruct *matrix, double v_min, double v_max) {
 }
 
 void round_sparse_matrix(CSRStruct *matrix, double scale) {
-    unsigned int i;
-    for (i = 0; i < matrix->nnz; i++) {
+    for (int i = 0; i < matrix->nnz; i++) {
         matrix->values[i] = round(matrix->values[i] / scale) * scale;
     }
 }

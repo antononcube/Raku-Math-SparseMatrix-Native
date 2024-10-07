@@ -152,17 +152,22 @@ classDiagram
     - [X] DONE `add` with another matrix
     - [X] DONE `multiply` with a scalar
     - [X] DONE `multiply` with another matrix
+    - [X] DONE Info methods
+    - [X] DONE Access functions
+    - [X] DONE Values operations `unitize`, `clip`, `round`.
 - [X] DONE Refactoring
   - Consistent use of `unsigned int` or `int` for `row_ptr` and `col_index`. 
-- [ ] TODO Adaptation to "Math::SparseMatrix"
-    - This package was made in order to have faster computation with "Math::SparseMatrix".
+- [X] DONE Adaptation to "Math::SparseMatrix"
+    - This package was made in order to have faster computation with "Math::SparseMatrix", [AAp1].
     - But it can be self-contained and independent from "Math::SparseMatrix".
-    - Hence, we make an adapter class in "Math::SparseMatrix".
+    - Hence, we make an adapter class:
+      - See `Math::SparseMatrix::NativeAdapter` in "Math::SparseMatrix".
 - [X] DONE Unit tests
     - [X] DONE Creation (and destruction)
     - [X] DONE Access
     - [X] DONE Element-wise operations
     - [X] DONE Dot product
+    - [X] DONE Values operations `unitize`, `clip`, `round`.
 
 ------
 

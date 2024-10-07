@@ -479,7 +479,7 @@ int dot_pattern(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int n
 int dot_numeric(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int nnz) {
     if (A->ncol != B->nrow) {
         fprintf(stderr, "The number of rows of the argument is expected to be equal to the number of columns of the object.\n");
-        exit(EXIT_FAILURE);
+        return EXIT_FAILURE;
     }
 
     CSRStruct pattern;
@@ -655,7 +655,7 @@ int add_numeric(CSRStruct *result, CSRStruct *matrix, CSRStruct *other, int op) 
         }
     }
 
-    destroy_sparse_matrix(result);
+    //destroy_sparse_matrix(result);
     create_sparse_matrix(result, matrix->nrow, matrix->ncol, pattern.nnz, matrix->implicit_value + other->implicit_value);
 
     for(int i = 0; i < pattern.nnz; i++) {

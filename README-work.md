@@ -140,6 +140,25 @@ classDiagram
 
 ------
 
+## Development notes
+
+### Local installation 
+
+In order to install within a local clone of the repository:
+
+- Go to repository's folder
+- Remove the directory "./resources/libraries"
+- Remove the file "./src/Makefile"
+- Use `zef install . --force-install`
+
+### Connection with "Math::SparseMatrix"
+
+The main goal of this package is to be used by "Math::SparseMatrix".
+In order to verify that the class of `Math::SparseMatrix` uses `Math::SparseMatrix::Native` 
+run the tests in the directory of "./xt" of the "Math::SparseMatrix" (repository) folder.
+
+------
+
 ## TODO
 
 - [X] DONE Core functionalities

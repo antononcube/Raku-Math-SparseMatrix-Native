@@ -518,7 +518,14 @@ class CSRStruct is repr('CStruct') {
             my $m2 = $other.transpose.transpose;
             add_sparse_matrices($target, $m1, $m2);
         } else {
-            add_numeric($target, self, $other);
+            # The C function add_pattern -- using by add_numeric --
+            # produces segmentation fault.
+            # Also, it seems that it takes the Raku passed arguments in the wrong order.
+            # Hence using the more general version.
+            # add_numeric($target, self, $other);
+            my $m1 = self.transpose.transpose;
+            my $m2 = $other.transpose.transpose;
+            add_sparse_matrices($target, $m1, $m2);
         }
         return $target;
     }

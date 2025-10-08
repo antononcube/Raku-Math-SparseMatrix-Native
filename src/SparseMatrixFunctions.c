@@ -23,13 +23,14 @@ typedef struct CSRStruct {
  * @param implicit_value  The implicit value for elements not explicitly stored.
  * @param matrix          Pointer to the CSRStruct struct to be initialized.
  *
- * @return void
+ * @return (int) error code
  *
  * @note If memory allocation fails for any of the arrays, the corresponding pointers are set to NULL,
  *       and the nnz, nrow, and ncol are set to 0.
  */
 int create_sparse_matrix(CSRStruct *matrix, int nrow, int ncol, int nnz, double implicit_value) {
     if (matrix == NULL) {
+        fprintf(stderr, "The first argument matrix struct is NULL.\n");
         return 1;
     }
     
@@ -319,7 +320,7 @@ int transpose(CSRStruct *target, CSRStruct *matrix) {
 
     for (int i = 0; i < matrix->nrow; ++i) {
         int IAA = matrix->row_ptr[i];
-        int IAB = matrix->row_ptr[i + 1];
+        IAB = matrix->row_ptr[i + 1];
         if (IAB < IAA) continue;
         for (int jp = IAA; jp < IAB; ++jp) {
             int J = matrix->col_index[jp] + 1;
@@ -550,9 +551,9 @@ int dot_numeric(CSRStruct *result, const CSRStruct *A, const CSRStruct *B, int n
 //=====================================================================
 // Addition-pattern (element-wise)
 //=====================================================================
-int add_pattern(CSRStruct *result, CSRStruct *matrix, CSRStruct *other) {
+int add_pattern(CSRStruct *result, const CSRStruct *matrix, const CSRStruct *other) {
     if(matrix->nrow != other->nrow || matrix->ncol != other->ncol) {
-        // The dimensions of the argument must match the dimensions of the object.
+        fprintf(stderr, "The dimensions of the second argument must match the dimensions of the third argument.\n");
         return EXIT_FAILURE;
     }
 
@@ -588,25 +589,27 @@ int add_pattern(CSRStruct *result, CSRStruct *matrix, CSRStruct *other) {
     IC[matrix->nrow] = IP;
 
     //destroy_sparse_matrix(result);
-    create_sparse_matrix(result, matrix->nrow, matrix->ncol, IP, 0.0);
+    int err = create_sparse_matrix(result, matrix->nrow, matrix->ncol, IP, 0.0);
 
-    for(int i = 0; i < IP; i++) {
-        result->values[i] = 1.0;
-    }
+    if(err == 0) {
+        for(int i = 0; i < IP; i++) {
+            result->values[i] = 1.0;
+        }
 
-    for(int i = 0; i <= matrix->nrow; i++) {
-        result->row_ptr[i] = IC[i];
-    }
+        for(int i = 0; i <= matrix->nrow; i++) {
+            result->row_ptr[i] = IC[i];
+        }
 
-    for(int i = 0; i < IP; i++) {
-        result->col_index[i] = JC[i];
+        for(int i = 0; i < IP; i++) {
+            result->col_index[i] = JC[i];
+        }
     }
 
     free(IC);
     free(JC);
     free(IX);
 
-    return 0;
+    return err;
 }
 
 //=====================================================================

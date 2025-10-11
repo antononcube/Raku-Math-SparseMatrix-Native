@@ -81,12 +81,20 @@ class CSRStruct is repr('CStruct') {
     # Creators
     #=================================================================--
     submethod BUILD(:$values, :$col_index, :$row_ptr, :$nnz is copy = 0,
-                    UInt:D :$nrow = 0, UInt:D :$ncol = 0,
+                    :$nrow is copy = 0, :$ncol is copy = 0,
                     Numeric:D :$implicit_value = 0e0) {
 
         if $nnz.isa(Whatever) { $nnz = $values.elems }
         die 'The agument $nnz is expected to be a non-negative integer or Whatever.'
         unless $nnz ~~ Int:D && $nnz ≥ 0;
+
+        if $ncol.isa(Whatever) { $ncol = $col_index.max + 1 }
+        die 'The agument $ncol is expected to be a non-negative integer or Whatever.'
+        unless $ncol ~~ Int:D && $ncol ≥ 0;
+
+        if $nrow.isa(Whatever) { $nrow = $row_ptr.elems - 1 }
+        die 'The agument $nrow is expected to be a non-negative integer or Whatever.'
+        unless $nrow ~~ Int:D && $nrow ≥ 0;
 
         create_sparse_matrix(self, $nrow, $ncol, $nnz, $implicit_value.Num);
 
@@ -106,10 +114,10 @@ class CSRStruct is repr('CStruct') {
     }
 
     #----------------------------------------------------------------
-    multi method new(:$values!, :$col_index, :$row_ptr, :$nnz is copy = 0,
-                     UInt:D :$nrow = 0, UInt:D :$ncol = 0,
+    multi method new(:@values!, :$col_index, :$row_ptr, :$nnz = Whatever,
+                     :$nrow = Whatever, :$ncol = Whatever,
                      Numeric:D :$implicit_value = 0e0) {
-        self.bless(:$values, :$col_index, :$row_ptr, :$nrow, :$ncol, :$nnz, :$implicit_value);
+        self.bless(:@values, :$col_index, :$row_ptr, :$nrow, :$ncol, :$nnz, :$implicit_value);
     }
 
     multi method new(:@rules! where @rules.all ~~ Pair:D,

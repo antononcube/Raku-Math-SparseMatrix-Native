@@ -11,6 +11,8 @@ my $density = 0.25;
 my $nnz = ($nrow * $ncol * $density).Int;
 my $seed = 7834;
 
+plan *;
+
 ## 1
 ok Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
 
@@ -50,6 +52,24 @@ subtest {
             $matrix.Array,
             @dense-matrix,
             "Same dense arrays";
-    }, "Creation from rules";
+}, "Creation from rules";
+
+## 6
+subtest {
+    my @values = [3, 1, -1];
+    my @col_index = [1, 1, 4];
+    my @row_ptr = [0, 1, 2, 2, 3];
+    ok Math::SparseMatrix::Native::CSRStruct.new(:@values, :@col_index, :@row_ptr);
+    my $matrix = Math::SparseMatrix::Native::CSRStruct.new(:@values, :@col_index, :@row_ptr);
+    is-deeply $matrix.dimensions, (4, 5);
+    $matrix2 = Math::SparseMatrix::Native::CSRStruct.new(:@values, :@col_index, :@row_ptr, :6nrow, :8ncol);
+    is-deeply $matrix2.dimensions, (6, 8);
+    my @dense-matrix = [0, 3, 0, 0, 0], [0, 1, 0, 0, 0], (0 xx 5).Array,  [0, 0, 0, 0, -1];
+    @dense-matrix .= deepmap(*.Num);
+    is-deeply
+            $matrix.Array,
+            @dense-matrix,
+            "Same dense arrays";
+}, "Creation from values and pattern";
 
 done-testing;

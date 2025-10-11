@@ -103,8 +103,20 @@ class CSRStruct is repr('CStruct') {
                 self.values[$i] = $values[$i].Num;
                 self.col_index[$i] = $col_index[$i];
             }
-            for 0..$nrow -> $i {
-                self.row_ptr[$i] = $row_ptr[$i].Int
+            if $row_ptr ~~ CArray[int32] {
+                # If the row pattern is obtain through C/NativeCall
+                # then we cannot use $row_ptr.elems -- it is not known.
+                for 0 .. $nrow -> $i {
+                    self.row_ptr[$i] = $row_ptr[$i].Int
+                }
+            } else {
+                for 0 .. $nrow -> $i {
+                    if $i < $row_ptr.elems {
+                        self.row_ptr[$i] = $row_ptr[$i].Int
+                    } else {
+                        self.row_ptr[$i] = $row_ptr.tail.Int
+                    }
+                }
             }
         }
     }

@@ -92,18 +92,30 @@ say '-' x 100;
 my @row-sums = $matrix1.row-sums;
 say (:@row-sums);
 
+#`[
 my @row-sums-check = $matrix1.Array.map({ $_.sum });
 say (:@row-sums-check);
 say 'row sums max absolute difference:', (@row-sums Z- @row-sums-check)».abs.max;
 
 my $row-sums = $matrix1.row-sums(:pairs);
 say (:$row-sums);
+]
 
 my @row-maxes = $matrix1.row-maxes(:!pairs);
 say (:@row-maxes);
 
+#`[
 my @row-maxes-check = $matrix1.Array.map({ $_.max });
 say (:@row-maxes-check);
 say 'row maxes max absolute difference:', (@row-maxes Z- @row-maxes-check)».abs.max;
+]
 
+#----------------------------------------------------------------------------------------------------
+say '-' x 100;
 
+my $matrix10 = $matrix1.top-k-elements-matrix(14);
+
+say $matrix10;
+
+say $matrix10.tuples.sort(-*.tail)».tail;
+say $matrix1.tuples.sort(-*.tail)».tail.head(14);

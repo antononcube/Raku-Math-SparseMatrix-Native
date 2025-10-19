@@ -3,4 +3,5 @@ Revision history for "Math::SparseMatrix::Native"
 0.0.5 2025-10-19
     - Implemented row sums and maxes in C.
       - And corresponding "top-level" methods.
-    - Implemented column sums and maxes via use row sums and maxes and transposing.
+    - Implemented column sums/maxes via row sums/maxes and transposing.
+    - Implemented creation of a new matrix in which only the largest, top-K elements are kept.

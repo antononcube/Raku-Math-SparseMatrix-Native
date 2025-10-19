@@ -1,7 +1,7 @@
 #!/usr/bin/env raku
 use v6.d;
 
-use lib <. lib>;
+# use lib <. lib>;
 use NativeCall;
 use Math::SparseMatrix::CSR;
 use Math::SparseMatrix::Native;
@@ -25,6 +25,7 @@ say (nrow => $matrix1.nrow, ncol => $matrix1.ncol, nnz => $matrix1.nnz);
 
 if $matrix1.nnz < 100 { $matrix1.&normalize.print }
 
+#----------------------------------------------------------------------------------------------------
 say '-' x 100;
 
 my $tstart = now;
@@ -36,6 +37,7 @@ say "Transpose time: {$tend - $tstart} seconds.";
 
 if $matrix1t.nnz < 100  { $matrix1t.&normalize.print }
 
+#----------------------------------------------------------------------------------------------------
 say '-' x 100;
 
 $tstart = now;
@@ -49,6 +51,7 @@ if $matrix2.nnz < 100 {
     $matrix2.&normalize.print
 }
 
+#----------------------------------------------------------------------------------------------------
 say '-' x 100;
 
 $tstart = now;
@@ -62,6 +65,7 @@ if $matrix3.nnz < 100 {
     $matrix3.&normalize.print
 }
 
+#----------------------------------------------------------------------------------------------------
 say '-' x 100;
 
 my $matrix4 = $matrix1.add(100, :clone);
@@ -72,6 +76,7 @@ if $matrix4.nnz < 100 {
     $matrix4.&normalize.print(:!iv)
 }
 
+#----------------------------------------------------------------------------------------------------
 say '-' x 100;
 
 my $matrix5 = $matrix1.add($matrix1);
@@ -80,3 +85,25 @@ say (:$matrix5);
 if $matrix5.nnz < 100 {
     $matrix5.&normalize.print(:!iv)
 }
+
+#----------------------------------------------------------------------------------------------------
+say '-' x 100;
+
+my @row-sums = $matrix1.row-sums;
+say (:@row-sums);
+
+my @row-sums-check = $matrix1.Array.map({ $_.sum });
+say (:@row-sums-check);
+say 'row sums max absolute difference:', (@row-sums Z- @row-sums-check)».abs.max;
+
+my $row-sums = $matrix1.row-sums(:pairs);
+say (:$row-sums);
+
+my @row-maxes = $matrix1.row-maxes(:!pairs);
+say (:@row-maxes);
+
+my @row-maxes-check = $matrix1.Array.map({ $_.max });
+say (:@row-maxes-check);
+say 'row maxes max absolute difference:', (@row-maxes Z- @row-maxes-check)».abs.max;
+
+

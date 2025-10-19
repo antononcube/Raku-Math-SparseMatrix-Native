@@ -898,3 +898,54 @@ void round_sparse_matrix(CSRStruct *matrix, double scale) {
         matrix->values[i] = round(matrix->values[i] / scale) * scale;
     }
 }
+
+//=====================================================================
+// New sparse matrix with top-k elements only
+//=====================================================================
+
+typedef struct {
+    int row;
+    int col;
+    double value;
+} Triplet;
+
+int diff_compare_triplets(const void *a, const void *b) {
+    double diff = ((Triplet *)b)->value - ((Triplet *)a)->value;
+    if (diff > 0) return 1;
+    if (diff < 0) return -1;
+    return 0;
+}
+
+int top_k_sparse_matrix(CSRStruct *result, CSRStruct *matrix, int k) {
+    Triplet *triplets = (Triplet *)malloc(matrix->nnz * sizeof(Triplet));
+    int j = 0;
+    for (int i = 0; i < matrix->nrow; i++) {
+        for (int idx = matrix->row_ptr[i]; idx < matrix->row_ptr[i+1]; idx++) {
+            triplets[j].row = i;
+            triplets[j].col = matrix->col_index[idx];
+            triplets[j].value = matrix->values[idx];
+            j++;
+        }
+    }
+
+    qsort(triplets, matrix->nnz, sizeof(Triplet), diff_compare_triplets);
+
+    int *rows = (int *)malloc(k * sizeof(int));
+    int *cols = (int *)malloc(k * sizeof(int));
+    double *values = (double *)malloc(k * sizeof(double));
+
+    for (int i = 0; i < k; i++) {
+        rows[i] = triplets[i].row;
+        cols[i] = triplets[i].col;
+        values[i] = triplets[i].value;
+    }
+
+    int status = create_sparse_matrix_from_triplets(result, matrix->nrow, matrix->ncol, k, matrix->implicit_value, rows, cols, values);
+
+    free(triplets);
+    free(rows);
+    free(cols);
+    free(values);
+
+    return status;
+}

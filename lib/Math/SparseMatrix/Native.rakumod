@@ -83,6 +83,9 @@ class CSRStruct is repr('CStruct') {
     sub round_sparse_matrix(CSRStruct, num64)
             is native($library) {*}
 
+    sub top_k_sparse_matrix(CSRStruct is rw, CSRStruct, int32)
+            is native($library) {*}
+
     #=================================================================
     # Creators
     #=================================================================--
@@ -583,7 +586,7 @@ class CSRStruct is repr('CStruct') {
     #=================================================================
     # Row sums and maxes
     #=================================================================
-    #| Row sums the sparse matrix
+    #| Row sums the sparse matrix.
     #| C<:$pairs> -- Whether to return index-to-row-sum hashmap or not.
     method row-sums(Bool:D :p(:$pairs) = False) {
         my $sums = CArray[num64].allocate(self.nrow);
@@ -594,7 +597,7 @@ class CSRStruct is repr('CStruct') {
         return $sums.Array;
     }
 
-    #| Row maxes the sparse matrix
+    #| Row maxes the sparse matrix.
     #| C<:$pairs> -- Whether to return index-to-row-max hashmap or not.
     method row-maxes(Bool:D :p(:$pairs) = False) {
         my $sums = CArray[num64].allocate(self.nrow);
@@ -605,14 +608,14 @@ class CSRStruct is repr('CStruct') {
         return $sums.Array;
     }
 
-    #| Column sums the sparse matrix
+    #| Column sums the sparse matrix.
     #| C<:$pairs> -- Whether to return index-to-column-sum hashmap or not.
     method column-sums(Bool:D :p(:$pairs) = False) {
         # .transpose() clones.
         return self.transpose.row-sums(:$pairs);
     }
 
-    #| Column sums the sparse matrix
+    #| Column sums the sparse matrix.
     #| C<:$pairs> -- Whether to return index-to-column-max hashmap or not.
     method column-maxes(Bool:D :p(:$pairs) = False) {
         # .transpose() clones.
@@ -622,7 +625,7 @@ class CSRStruct is repr('CStruct') {
     #=================================================================
     # Unitize
     #=================================================================
-    #| Unitize the sparse matrix
+    #| Unitize the sparse matrix.
     #| C<:$clone> -- Whether to operate in-place.
     method unitize(Bool:D :$clone = True) {
         if $clone {
@@ -635,7 +638,7 @@ class CSRStruct is repr('CStruct') {
     #=================================================================
     # Clip
     #=================================================================
-    #| Clip the sparse matrix
+    #| Clip the sparse matrix.
     #| C<:$v-min> -- The new min value.
     #| C<:$v-max> -- The new max value.
     #| C<:$clone> -- Whether to operate in-place.
@@ -650,7 +653,7 @@ class CSRStruct is repr('CStruct') {
     #=================================================================
     # Round
     #=================================================================
-    #| Round the sparse matrix
+    #| Round the sparse matrix.
     #| C<:$scale> -- Scale to round to.
     method round(Numeric:D $scale = 1, Bool:D :$clone = True) {
         if $clone {
@@ -661,9 +664,20 @@ class CSRStruct is repr('CStruct') {
     }
 
     #=================================================================
+    # Top-k elements only
+    #=================================================================
+    #| Create a new sparse matrix with the top-K elements only.
+    #| C<:$k> -- Number of top elements.
+    method top-k-elements-matrix(UInt:D $k) {
+        my $target = CSRStruct.new();
+        my $status = top_k_sparse_matrix($target, self, $k);
+        return $target;
+    }
+
+    #=================================================================
     # Simple print
     #=================================================================
-    # Method to display/print the sparse matrix
+    # Method to display/print the sparse matrix.
     method print() {
         for ^$!nrow -> $i {
             say "Row ", $i, ":";

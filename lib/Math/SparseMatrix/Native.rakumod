@@ -68,6 +68,12 @@ class CSRStruct is repr('CStruct') {
     sub multiply_sparse_matrices(CSRStruct is rw, CSRStruct, CSRStruct --> int32)
             is native($library) {*}
 
+    sub row_sums_sparse_matrix(CSRStruct, CArray[num64])
+            is native($library) {*}
+
+    sub row_maxes_sparse_matrix(CSRStruct, CArray[num64])
+            is native($library) {*}
+
     sub unitize_sparse_matrix(CSRStruct)
             is native($library) {*}
 
@@ -572,6 +578,45 @@ class CSRStruct is repr('CStruct') {
         my $m2 = $other.transpose.transpose;
         my $res = multiply_sparse_matrices($target, $m1, $m2);
         return $target;
+    }
+
+    #=================================================================
+    # Row sums and maxes
+    #=================================================================
+    #| Row sums the sparse matrix
+    #| C<:$pairs> -- Whether to return index-to-row-sum hashmap or not.
+    method row-sums(Bool:D :p(:$pairs) = False) {
+        my $sums = CArray[num64].allocate(self.nrow);
+        row_sums_sparse_matrix(self, $sums);
+        if $pairs {
+            return ((^self.nrow).Array Z=> $sums.Array).Hash;
+        }
+        return $sums.Array;
+    }
+
+    #| Row maxes the sparse matrix
+    #| C<:$pairs> -- Whether to return index-to-row-max hashmap or not.
+    method row-maxes(Bool:D :p(:$pairs) = False) {
+        my $sums = CArray[num64].allocate(self.nrow);
+        row_maxes_sparse_matrix(self, $sums);
+        if $pairs {
+            return ((^self.nrow).Array Z=> $sums.Array).Hash;
+        }
+        return $sums.Array;
+    }
+
+    #| Column sums the sparse matrix
+    #| C<:$pairs> -- Whether to return index-to-column-sum hashmap or not.
+    method column-sums(Bool:D :p(:$pairs) = False) {
+        # .transpose() clones.
+        return self.transpose.row-sums(:$pairs);
+    }
+
+    #| Column sums the sparse matrix
+    #| C<:$pairs> -- Whether to return index-to-column-max hashmap or not.
+    method column-maxes(Bool:D :p(:$pairs) = False) {
+        # .transpose() clones.
+        return self.transpose.row-maxes(:$pairs);
     }
 
     #=================================================================

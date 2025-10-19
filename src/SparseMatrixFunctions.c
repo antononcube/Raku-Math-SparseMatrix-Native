@@ -846,6 +846,35 @@ int multiply_sparse_matrices(CSRStruct *result, const CSRStruct *A, const CSRStr
 }
 
 //=====================================================================
+// Row sums and maxes
+//=====================================================================
+void row_sums_sparse_matrix(CSRStruct *matrix, double *row_sums)
+{
+    unsigned int i, j;
+
+    for (i = 0; i < matrix->nrow; ++i) {
+        row_sums[i] = 0.0;
+        for (j = matrix->row_ptr[i]; j < matrix->row_ptr[i + 1]; ++j) {
+            row_sums[i] += matrix->values[j];
+        }
+    }
+}
+
+void row_maxes_sparse_matrix(CSRStruct *matrix, double *row_max)
+{
+    unsigned int i, j;
+
+    for (i = 0; i < matrix->nrow; ++i) {
+        row_max[i] = matrix->values[matrix->row_ptr[i]];
+        for (j = matrix->row_ptr[i]; j < matrix->row_ptr[i + 1]; ++j) {
+            if(matrix->values[j] > row_max[i]) {
+                row_max[i] = matrix->values[j];
+            }
+        }
+    }
+}
+
+//=====================================================================
 // Values operations
 //=====================================================================
 void unitize_sparse_matrix(CSRStruct *matrix) {

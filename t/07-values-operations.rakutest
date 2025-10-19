@@ -27,4 +27,10 @@ isa-ok $matrix1.round(0.2), Math::SparseMatrix::Native::CSRStruct:D, "round type
 ## 4
 isa-ok $matrix1.round(0.2, :clone), Math::SparseMatrix::Native::CSRStruct:D, "round with cloning type";
 
+## 5
+isa-ok $matrix1.row-sums(), Array:D, "row sums";
+
+## 6
+isa-ok $matrix1.column-sums(:pairs), Map:D, "column sums hashmap";
+
 done-testing;

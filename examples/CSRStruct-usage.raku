@@ -113,7 +113,17 @@ say 'row maxes max absolute difference:', (@row-maxes Z- @row-maxes-check)».abs
 #----------------------------------------------------------------------------------------------------
 say '-' x 100;
 
+my @column-sums = $matrix1.column-sums;
+say (:@column-sums);
+say (@column-sums.elems);
+
+say $matrix1.column-sums(:pairs);
+
+#----------------------------------------------------------------------------------------------------
+say '-' x 100;
+
 my $matrix10 = $matrix1.top-k-elements-matrix(14);
+#my $matrix10 = $matrix1.top-k-elements-matrix($matrix1.nnz + 10);
 
 say $matrix10;
 

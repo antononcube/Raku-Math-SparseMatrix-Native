@@ -364,7 +364,7 @@ class CSRStruct is repr('CStruct') {
     }
 
     method explicit-positions() {
-        return self.rules.keys;
+        return self.rules».key.Array;
     }
 
     method explicit-values() {

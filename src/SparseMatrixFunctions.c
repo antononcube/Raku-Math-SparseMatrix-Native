@@ -874,6 +874,19 @@ void row_maxes_sparse_matrix(CSRStruct *matrix, double *row_max)
     }
 }
 
+// Having a dedicate column sums sub seems to be for performant than
+// using &transpose and &row_sums_sparse_matrix.
+void column_sums_sparse_matrix(CSRStruct *matrix, double *col_sums) {
+    // The column sums could be a result instead of a parameter:
+    // double *col_sums = (double *)calloc(matrix->ncol, sizeof(double));
+    for (unsigned int i = 0; i < matrix->ncol; i++) { col_sums[i] = 0.0; }
+    for (unsigned int i = 0; i < matrix->nrow; i++) {
+        for (unsigned int idx = matrix->row_ptr[i]; idx < matrix->row_ptr[i+1]; idx++) {
+            col_sums[matrix->col_index[idx]] += matrix->values[idx];
+        }
+    }
+}
+
 //=====================================================================
 // Values operations
 //=====================================================================

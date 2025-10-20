@@ -74,6 +74,9 @@ class CSRStruct is repr('CStruct') {
     sub row_maxes_sparse_matrix(CSRStruct, CArray[num64])
             is native($library) {*}
 
+    sub column_sums_sparse_matrix(CSRStruct, CArray[num64])
+            is native($library) {*}
+
     sub unitize_sparse_matrix(CSRStruct)
             is native($library) {*}
 
@@ -611,8 +614,12 @@ class CSRStruct is repr('CStruct') {
     #| Column sums the sparse matrix.
     #| C<:$pairs> -- Whether to return index-to-column-sum hashmap or not.
     method column-sums(Bool:D :p(:$pairs) = False) {
-        # .transpose() clones.
-        return self.transpose.row-sums(:$pairs);
+        my $sums = CArray[num64].allocate(self.ncol);
+        column_sums_sparse_matrix(self, $sums);
+        if $pairs {
+            return ((^self.ncol).Array Z=> $sums.Array).Hash;
+        }
+        return $sums.Array;
     }
 
     #| Column sums the sparse matrix.

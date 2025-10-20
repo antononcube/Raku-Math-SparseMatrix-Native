@@ -930,6 +930,7 @@ int top_k_sparse_matrix(CSRStruct *result, CSRStruct *matrix, int k) {
 
     qsort(triplets, matrix->nnz, sizeof(Triplet), diff_compare_triplets);
 
+    k = (matrix->nnz < k) ? matrix->nnz : k;
     int *rows = (int *)malloc(k * sizeof(int));
     int *cols = (int *)malloc(k * sizeof(int));
     double *values = (double *)malloc(k * sizeof(double));

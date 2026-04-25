@@ -963,3 +963,438 @@ int top_k_sparse_matrix(CSRStruct *result, CSRStruct *matrix, int k) {
 
     return status;
 }
+
+//=====================================================================
+// Singular Value Decomposition
+//=====================================================================
+static double svd_abs(double x) {
+    return x < 0.0 ? -x : x;
+}
+
+static int svd_min_int(int a, int b) {
+    return a < b ? a : b;
+}
+
+static double *dense_from_csr(const CSRStruct *matrix) {
+    int nrow = matrix->nrow;
+    int ncol = matrix->ncol;
+    double *dense = (double *)malloc((size_t)nrow * (size_t)ncol * sizeof(double));
+    if (!dense) return NULL;
+
+    for (int i = 0; i < nrow * ncol; ++i) {
+        dense[i] = matrix->implicit_value;
+    }
+
+    for (int i = 0; i < nrow; ++i) {
+        for (int p = matrix->row_ptr[i]; p < matrix->row_ptr[i + 1]; ++p) {
+            int j = matrix->col_index[p];
+            if (j >= 0 && j < ncol) {
+                dense[i * ncol + j] = matrix->values[p];
+            }
+        }
+    }
+
+    return dense;
+}
+
+static int dense_to_sparse_matrix(CSRStruct *target, int nrow, int ncol, const double *dense, double tol) {
+    int nnz = 0;
+    for (int i = 0; i < nrow * ncol; ++i) {
+        if (svd_abs(dense[i]) > tol) nnz++;
+    }
+
+    int err = create_sparse_matrix(target, nrow, ncol, nnz, 0.0);
+    if (err) return err;
+
+    int pos = 0;
+    for (int i = 0; i < nrow; ++i) {
+        target->row_ptr[i] = pos;
+        for (int j = 0; j < ncol; ++j) {
+            double value = dense[i * ncol + j];
+            if (svd_abs(value) > tol) {
+                target->values[pos] = value;
+                target->col_index[pos] = j;
+                pos++;
+            }
+        }
+    }
+    if (nrow >= 0) target->row_ptr[nrow] = pos;
+
+    return 0;
+}
+
+static int diagonal_to_sparse_matrix(CSRStruct *target, int n, const double *diagonal, double tol) {
+    int nnz = 0;
+    for (int i = 0; i < n; ++i) {
+        if (svd_abs(diagonal[i]) > tol) nnz++;
+    }
+
+    int err = create_sparse_matrix(target, n, n, nnz, 0.0);
+    if (err) return err;
+
+    int pos = 0;
+    for (int i = 0; i < n; ++i) {
+        target->row_ptr[i] = pos;
+        if (svd_abs(diagonal[i]) > tol) {
+            target->values[pos] = diagonal[i];
+            target->col_index[pos] = i;
+            pos++;
+        }
+    }
+    if (n >= 0) target->row_ptr[n] = pos;
+
+    return 0;
+}
+
+static void identity_matrix(double *matrix, int n) {
+    for (int i = 0; i < n * n; ++i) matrix[i] = 0.0;
+    for (int i = 0; i < n; ++i) matrix[i * n + i] = 1.0;
+}
+
+static int jacobi_symmetric_eigen(double *a, int n, double *eigenvalues, double *eigenvectors) {
+    if (n < 0) return 1;
+    if (n == 0) return 0;
+
+    identity_matrix(eigenvectors, n);
+
+    int max_iterations = 100 * n * n;
+    double eps = 1e-14;
+
+    for (int iteration = 0; iteration < max_iterations; ++iteration) {
+        int p = 0;
+        int q = 1;
+        double max_offdiag = 0.0;
+        double max_diag = 0.0;
+
+        for (int i = 0; i < n; ++i) {
+            double diag = svd_abs(a[i * n + i]);
+            if (diag > max_diag) max_diag = diag;
+            for (int j = i + 1; j < n; ++j) {
+                double offdiag = svd_abs(a[i * n + j]);
+                if (offdiag > max_offdiag) {
+                    max_offdiag = offdiag;
+                    p = i;
+                    q = j;
+                }
+            }
+        }
+
+        if (n == 1 || max_offdiag <= eps * (max_diag + 1.0)) {
+            for (int i = 0; i < n; ++i) eigenvalues[i] = a[i * n + i];
+            return 0;
+        }
+
+        double app = a[p * n + p];
+        double aqq = a[q * n + q];
+        double apq = a[p * n + q];
+        if (apq == 0.0) continue;
+
+        double tau = (aqq - app) / (2.0 * apq);
+        double tau_sign = tau >= 0.0 ? 1.0 : -1.0;
+        double t = tau_sign / (svd_abs(tau) + sqrt(1.0 + tau * tau));
+        double c = 1.0 / sqrt(1.0 + t * t);
+        double s = t * c;
+
+        for (int i = 0; i < n; ++i) {
+            if (i != p && i != q) {
+                double aip = a[i * n + p];
+                double aiq = a[i * n + q];
+                double new_ip = c * aip - s * aiq;
+                double new_iq = s * aip + c * aiq;
+                a[i * n + p] = new_ip;
+                a[p * n + i] = new_ip;
+                a[i * n + q] = new_iq;
+                a[q * n + i] = new_iq;
+            }
+        }
+
+        double new_pp = c * c * app - 2.0 * s * c * apq + s * s * aqq;
+        double new_qq = s * s * app + 2.0 * s * c * apq + c * c * aqq;
+        a[p * n + p] = new_pp;
+        a[q * n + q] = new_qq;
+        a[p * n + q] = 0.0;
+        a[q * n + p] = 0.0;
+
+        for (int i = 0; i < n; ++i) {
+            double vip = eigenvectors[i * n + p];
+            double viq = eigenvectors[i * n + q];
+            eigenvectors[i * n + p] = c * vip - s * viq;
+            eigenvectors[i * n + q] = s * vip + c * viq;
+        }
+    }
+
+    for (int i = 0; i < n; ++i) eigenvalues[i] = a[i * n + i];
+    return 2;
+}
+
+static void sort_eigenpairs_descending(double *eigenvalues, double *eigenvectors, int n) {
+    for (int i = 0; i < n - 1; ++i) {
+        int best = i;
+        for (int j = i + 1; j < n; ++j) {
+            if (eigenvalues[j] > eigenvalues[best]) best = j;
+        }
+        if (best != i) {
+            double tmp_value = eigenvalues[i];
+            eigenvalues[i] = eigenvalues[best];
+            eigenvalues[best] = tmp_value;
+
+            for (int r = 0; r < n; ++r) {
+                double tmp_vector = eigenvectors[r * n + i];
+                eigenvectors[r * n + i] = eigenvectors[r * n + best];
+                eigenvectors[r * n + best] = tmp_vector;
+            }
+        }
+    }
+}
+
+static double column_norm(const double *matrix, int rows, int cols, int col) {
+    double sum = 0.0;
+    for (int i = 0; i < rows; ++i) {
+        double value = matrix[i * cols + col];
+        sum += value * value;
+    }
+    return sqrt(sum);
+}
+
+static void subtract_column_projection(double *matrix, int rows, int cols, int col, int previous_col) {
+    double dot = 0.0;
+    for (int i = 0; i < rows; ++i) {
+        dot += matrix[i * cols + col] * matrix[i * cols + previous_col];
+    }
+    for (int i = 0; i < rows; ++i) {
+        matrix[i * cols + col] -= dot * matrix[i * cols + previous_col];
+    }
+}
+
+static int complete_orthonormal_column(double *matrix, int rows, int cols, int col, double tol) {
+    double *candidate = (double *)calloc((size_t)rows, sizeof(double));
+    double *best = (double *)calloc((size_t)rows, sizeof(double));
+    if (!candidate || !best) {
+        free(candidate);
+        free(best);
+        return 2;
+    }
+
+    double best_norm = -1.0;
+    for (int basis = 0; basis < rows; ++basis) {
+        for (int i = 0; i < rows; ++i) candidate[i] = 0.0;
+        candidate[basis] = 1.0;
+
+        for (int j = 0; j < col; ++j) {
+            double dot = 0.0;
+            for (int i = 0; i < rows; ++i) dot += candidate[i] * matrix[i * cols + j];
+            for (int i = 0; i < rows; ++i) candidate[i] -= dot * matrix[i * cols + j];
+        }
+
+        double norm = 0.0;
+        for (int i = 0; i < rows; ++i) norm += candidate[i] * candidate[i];
+        norm = sqrt(norm);
+
+        if (norm > best_norm) {
+            best_norm = norm;
+            for (int i = 0; i < rows; ++i) best[i] = candidate[i];
+        }
+    }
+
+    if (best_norm <= tol) {
+        free(candidate);
+        free(best);
+        return 3;
+    }
+
+    for (int i = 0; i < rows; ++i) {
+        matrix[i * cols + col] = best[i] / best_norm;
+    }
+
+    free(candidate);
+    free(best);
+    return 0;
+}
+
+static int orthonormalize_column(double *matrix, int rows, int cols, int col, double tol) {
+    for (int pass = 0; pass < 2; ++pass) {
+        for (int j = 0; j < col; ++j) {
+            subtract_column_projection(matrix, rows, cols, col, j);
+        }
+    }
+
+    double norm = column_norm(matrix, rows, cols, col);
+    if (norm <= tol) {
+        return complete_orthonormal_column(matrix, rows, cols, col, tol);
+    }
+
+    for (int i = 0; i < rows; ++i) {
+        matrix[i * cols + col] /= norm;
+    }
+
+    return 0;
+}
+
+static void build_ata(double *gram, const double *a, int nrow, int ncol) {
+    for (int i = 0; i < ncol * ncol; ++i) gram[i] = 0.0;
+    for (int r = 0; r < nrow; ++r) {
+        for (int i = 0; i < ncol; ++i) {
+            double ari = a[r * ncol + i];
+            for (int j = i; j < ncol; ++j) {
+                gram[i * ncol + j] += ari * a[r * ncol + j];
+            }
+        }
+    }
+    for (int i = 0; i < ncol; ++i) {
+        for (int j = i + 1; j < ncol; ++j) {
+            gram[j * ncol + i] = gram[i * ncol + j];
+        }
+    }
+}
+
+static void build_aat(double *gram, const double *a, int nrow, int ncol) {
+    for (int i = 0; i < nrow * nrow; ++i) gram[i] = 0.0;
+    for (int i = 0; i < nrow; ++i) {
+        for (int j = i; j < nrow; ++j) {
+            double sum = 0.0;
+            for (int c = 0; c < ncol; ++c) {
+                sum += a[i * ncol + c] * a[j * ncol + c];
+            }
+            gram[i * nrow + j] = sum;
+            gram[j * nrow + i] = sum;
+        }
+    }
+}
+
+/**
+ * @brief Computes the thin singular value decomposition of a CSRStruct matrix.
+ *
+ * The result satisfies A = u * s * transpose(v), up to numerical tolerance.
+ * For an m-by-n input matrix, u is m-by-k, s is diagonal k-by-k,
+ * and v is n-by-k. The k columns correspond to the k largest singular
+ * values in descending order.
+ */
+int svd(CSRStruct *u, CSRStruct *s, CSRStruct *v, CSRStruct *matrix, int k) {
+    if (!u || !s || !v || !matrix) return 1;
+    if (matrix->nrow < 0 || matrix->ncol < 0 || matrix->nnz < 0) return 1;
+
+    const double tolerance = 1e-12;
+    int m = matrix->nrow;
+    int n = matrix->ncol;
+    int max_k = svd_min_int(m, n);
+    if (k < 0 || k > max_k) return 1;
+
+    if (k == 0) {
+        int err = dense_to_sparse_matrix(u, m, k, NULL, tolerance);
+        if (err) return err;
+        err = diagonal_to_sparse_matrix(s, k, NULL, tolerance);
+        if (err) return err;
+        return dense_to_sparse_matrix(v, n, k, NULL, tolerance);
+    }
+
+    double *a = dense_from_csr(matrix);
+    double *gram = NULL;
+    double *eigenvalues = NULL;
+    double *eigenvectors = NULL;
+    double *singular_values = NULL;
+    double *dense_u = NULL;
+    double *dense_v = NULL;
+    int status = 0;
+    int eig_dim = m >= n ? n : m;
+
+    if (!a) return 2;
+
+    eigenvalues = (double *)malloc((size_t)eig_dim * sizeof(double));
+    singular_values = (double *)malloc((size_t)k * sizeof(double));
+    dense_u = (double *)calloc((size_t)m * (size_t)k, sizeof(double));
+    dense_v = (double *)calloc((size_t)n * (size_t)k, sizeof(double));
+
+    if (!eigenvalues || !singular_values || !dense_u || !dense_v) {
+        status = 2;
+        goto cleanup;
+    }
+
+    if (m >= n) {
+        gram = (double *)malloc((size_t)n * (size_t)n * sizeof(double));
+        eigenvectors = (double *)malloc((size_t)n * (size_t)n * sizeof(double));
+        if (!gram || !eigenvectors) {
+            status = 2;
+            goto cleanup;
+        }
+
+        build_ata(gram, a, m, n);
+        status = jacobi_symmetric_eigen(gram, n, eigenvalues, eigenvectors);
+        if (status) goto cleanup;
+        sort_eigenpairs_descending(eigenvalues, eigenvectors, n);
+
+        for (int col = 0; col < k; ++col) {
+            double lambda = eigenvalues[col] > 0.0 ? eigenvalues[col] : 0.0;
+            singular_values[col] = sqrt(lambda);
+
+            for (int row = 0; row < n; ++row) {
+                dense_v[row * k + col] = eigenvectors[row * n + col];
+            }
+
+            if (singular_values[col] > tolerance) {
+                for (int row = 0; row < m; ++row) {
+                    double sum = 0.0;
+                    for (int c = 0; c < n; ++c) {
+                        sum += a[row * n + c] * dense_v[c * k + col];
+                    }
+                    dense_u[row * k + col] = sum / singular_values[col];
+                }
+            }
+
+            status = orthonormalize_column(dense_u, m, k, col, tolerance);
+            if (status) goto cleanup;
+        }
+    } else {
+        gram = (double *)malloc((size_t)m * (size_t)m * sizeof(double));
+        eigenvectors = (double *)malloc((size_t)m * (size_t)m * sizeof(double));
+        if (!gram || !eigenvectors) {
+            status = 2;
+            goto cleanup;
+        }
+
+        build_aat(gram, a, m, n);
+        status = jacobi_symmetric_eigen(gram, m, eigenvalues, eigenvectors);
+        if (status) goto cleanup;
+        sort_eigenpairs_descending(eigenvalues, eigenvectors, m);
+
+        for (int col = 0; col < k; ++col) {
+            double lambda = eigenvalues[col] > 0.0 ? eigenvalues[col] : 0.0;
+            singular_values[col] = sqrt(lambda);
+
+            for (int row = 0; row < m; ++row) {
+                dense_u[row * k + col] = eigenvectors[row * m + col];
+            }
+
+            status = orthonormalize_column(dense_u, m, k, col, tolerance);
+            if (status) goto cleanup;
+
+            if (singular_values[col] > tolerance) {
+                for (int row = 0; row < n; ++row) {
+                    double sum = 0.0;
+                    for (int r = 0; r < m; ++r) {
+                        sum += a[r * n + row] * dense_u[r * k + col];
+                    }
+                    dense_v[row * k + col] = sum / singular_values[col];
+                }
+            }
+
+            status = orthonormalize_column(dense_v, n, k, col, tolerance);
+            if (status) goto cleanup;
+        }
+    }
+
+    status = dense_to_sparse_matrix(u, m, k, dense_u, tolerance);
+    if (status) goto cleanup;
+    status = diagonal_to_sparse_matrix(s, k, singular_values, tolerance);
+    if (status) goto cleanup;
+    status = dense_to_sparse_matrix(v, n, k, dense_v, tolerance);
+
+cleanup:
+    free(a);
+    free(gram);
+    free(eigenvalues);
+    free(eigenvectors);
+    free(singular_values);
+    free(dense_u);
+    free(dense_v);
+    return status;
+}

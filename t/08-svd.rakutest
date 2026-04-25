@@ -1,0 +1,87 @@
+use v6.d;
+
+use Math::SparseMatrix::Native;
+use Test;
+
+sub max-abs-diff(@a, @b) {
+    return (@a Z @b).map({
+        my (@ra, @rb) = $_.Slip;
+        (@ra Z @rb).map({ abs($_[0] - $_[1]) }).max
+    }).max;
+}
+
+sub check-svd(@dense, Str:D $label) {
+    my $matrix = Math::SparseMatrix::Native::CSRStruct.new(dense-matrix => @dense);
+    my ($u, $s, $v) = $matrix.svd;
+    my $k = min($matrix.nrow, $matrix.ncol);
+
+    isa-ok $u, Math::SparseMatrix::Native::CSRStruct:D, "$label u type";
+    isa-ok $s, Math::SparseMatrix::Native::CSRStruct:D, "$label s type";
+    isa-ok $v, Math::SparseMatrix::Native::CSRStruct:D, "$label v type";
+
+    is-deeply $u.dimensions, ($matrix.nrow, $k), "$label u dimensions";
+    is-deeply $s.dimensions, ($k, $k), "$label s dimensions";
+    is-deeply $v.dimensions, ($matrix.ncol, $k), "$label v dimensions";
+
+    my @singular-values = (^$k).map({ $s.value-at($_, $_) }).Array;
+    ok @singular-values.all >= -1e-10, "$label singular values are non-negative";
+    ok ([>=] @singular-values), "$label singular values are descending";
+
+    my $reconstructed = $u.dot($s).dot($v.transpose);
+    ok max-abs-diff($reconstructed.Array, $matrix.Array) < 1e-8, "$label reconstructs input";
+}
+
+check-svd(
+        [
+            [1e0, 0e0],
+            [0e0, 2e0],
+            [3e0, 0e0],
+        ],
+        'tall matrix');
+
+check-svd(
+        [
+            [1e0, 0e0, 3e0],
+            [0e0, 2e0, 0e0],
+        ],
+        'wide matrix');
+
+check-svd(
+        [
+            [1e0, 2e0, 3e0],
+            [2e0, 4e0, 6e0],
+            [0e0, 0e0, 0e0],
+        ],
+        'rank deficient matrix');
+
+{
+    my $matrix = Math::SparseMatrix::Native::CSRStruct.new(
+            dense-matrix => [
+                [3e0, 0e0],
+                [0e0, 2e0],
+                [0e0, 0e0],
+            ]);
+    my ($u, $s, $v) = $matrix.svd(1);
+
+    is-deeply $u.dimensions, (3, 1), 'truncated u dimensions';
+    is-deeply $s.dimensions, (1, 1), 'truncated s dimensions';
+    is-deeply $v.dimensions, (2, 1), 'truncated v dimensions';
+    ok abs($s.value-at(0, 0) - 3e0) < 1e-10, 'truncated keeps largest singular value';
+
+    my $reconstructed = $u.dot($s).dot($v.transpose);
+    ok max-abs-diff(
+            $reconstructed.Array,
+            [
+                [3e0, 0e0],
+                [0e0, 0e0],
+                [0e0, 0e0],
+            ]) < 1e-8,
+            'truncated reconstructs leading component';
+}
+
+{
+    my $matrix = Math::SparseMatrix::Native::CSRStruct.new(dense-matrix => [[1e0, 0e0], [0e0, 1e0]]);
+    dies-ok { $matrix.svd(3) }, 'k larger than min dimensions dies';
+}
+
+done-testing;

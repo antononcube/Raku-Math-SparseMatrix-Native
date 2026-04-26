@@ -1,7 +1,7 @@
 {
   "name": "Math::SparseMatrix::Native",
   "description": "Raku package sparse matrix algorithms based on C implementations.",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "perl": "6.d",
   "authors": [
     "Anton Antonov"
@@ -22,7 +22,8 @@
     "Math::SparseMatrix::Native::Utilities": "lib/Math/SparseMatrix/Native/Utilities.rakumod"
   },
   "resources": [
-    "libraries/SparseMatrixFunctions"
+    "libraries/SparseMatrixFunctions",
+    "libraries/libSparseMatrixFunctions.dylib"
   ],
   "license": "Artistic-2.0",
   "tags": [

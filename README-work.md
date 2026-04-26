@@ -174,6 +174,10 @@ run the tests in the directory of "./xt" of the "Math::SparseMatrix" (repository
     - [X] DONE Info methods
     - [X] DONE Access functions
     - [X] DONE Values operations `unitize`, `clip`, `round`.
+- [ ] TODO Additional functionalities
+  - [X] DONE Singular Value Decomposition (SVD) `svd`
+  - [ ] TODO (Sparse) linear system of equations solving 
+    - This is a _large_ topic. Hence it will require using multiple C files.
 - [X] DONE Refactoring
   - Consistent use of `unsigned int` or `int` for `row_ptr` and `col_index`. 
 - [X] DONE Adaptation to "Math::SparseMatrix"

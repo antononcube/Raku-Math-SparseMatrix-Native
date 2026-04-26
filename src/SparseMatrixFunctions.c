@@ -975,28 +975,6 @@ static int svd_min_int(int a, int b) {
     return a < b ? a : b;
 }
 
-static double *dense_from_csr(const CSRStruct *matrix) {
-    int nrow = matrix->nrow;
-    int ncol = matrix->ncol;
-    double *dense = (double *)malloc((size_t)nrow * (size_t)ncol * sizeof(double));
-    if (!dense) return NULL;
-
-    for (int i = 0; i < nrow * ncol; ++i) {
-        dense[i] = matrix->implicit_value;
-    }
-
-    for (int i = 0; i < nrow; ++i) {
-        for (int p = matrix->row_ptr[i]; p < matrix->row_ptr[i + 1]; ++p) {
-            int j = matrix->col_index[p];
-            if (j >= 0 && j < ncol) {
-                dense[i * ncol + j] = matrix->values[p];
-            }
-        }
-    }
-
-    return dense;
-}
-
 static int dense_to_sparse_matrix(CSRStruct *target, int nrow, int ncol, const double *dense, double tol) {
     int nnz = 0;
     for (int i = 0; i < nrow * ncol; ++i) {
@@ -1230,35 +1208,155 @@ static int orthonormalize_column(double *matrix, int rows, int cols, int col, do
     return 0;
 }
 
-static void build_ata(double *gram, const double *a, int nrow, int ncol) {
-    for (int i = 0; i < ncol * ncol; ++i) gram[i] = 0.0;
-    for (int r = 0; r < nrow; ++r) {
-        for (int i = 0; i < ncol; ++i) {
-            double ari = a[r * ncol + i];
-            for (int j = i; j < ncol; ++j) {
-                gram[i * ncol + j] += ari * a[r * ncol + j];
+static double vector_dot(const double *x, const double *y, int n) {
+    double sum = 0.0;
+    for (int i = 0; i < n; ++i) sum += x[i] * y[i];
+    return sum;
+}
+
+static double vector_norm(const double *x, int n) {
+    return sqrt(vector_dot(x, x, n));
+}
+
+static void reorthogonalize_vector(double *basis, int rows, int basis_cols, int used_cols, double *x) {
+    for (int pass = 0; pass < 2; ++pass) {
+        for (int col = 0; col < used_cols; ++col) {
+            double dot = 0.0;
+            for (int row = 0; row < rows; ++row) {
+                dot += x[row] * basis[row * basis_cols + col];
             }
-        }
-    }
-    for (int i = 0; i < ncol; ++i) {
-        for (int j = i + 1; j < ncol; ++j) {
-            gram[j * ncol + i] = gram[i * ncol + j];
+            for (int row = 0; row < rows; ++row) {
+                x[row] -= dot * basis[row * basis_cols + col];
+            }
         }
     }
 }
 
-static void build_aat(double *gram, const double *a, int nrow, int ncol) {
-    for (int i = 0; i < nrow * nrow; ++i) gram[i] = 0.0;
-    for (int i = 0; i < nrow; ++i) {
-        for (int j = i; j < nrow; ++j) {
-            double sum = 0.0;
-            for (int c = 0; c < ncol; ++c) {
-                sum += a[i * ncol + c] * a[j * ncol + c];
-            }
-            gram[i * nrow + j] = sum;
-            gram[j * nrow + i] = sum;
+static void copy_vector_to_column(double *matrix, int rows, int cols, int col, const double *x, double scale) {
+    for (int row = 0; row < rows; ++row) {
+        matrix[row * cols + col] = x[row] * scale;
+    }
+}
+
+static void deterministic_initial_vector(double *x, int n) {
+    unsigned int state = 2463534242u;
+    for (int i = 0; i < n; ++i) {
+        state = state * 1664525u + 1013904223u;
+        x[i] = ((double)(state & 0xffffu) / 32767.5) - 1.0;
+    }
+
+    double norm = vector_norm(x, n);
+    if (norm == 0.0 && n > 0) {
+        x[0] = 1.0;
+        norm = 1.0;
+    }
+    for (int i = 0; i < n; ++i) x[i] /= norm;
+}
+
+static void csr_matvec(const CSRStruct *matrix, const double *x, double *y) {
+    double implicit_sum = 0.0;
+    if (matrix->implicit_value != 0.0) {
+        for (int j = 0; j < matrix->ncol; ++j) implicit_sum += x[j];
+    }
+
+    for (int i = 0; i < matrix->nrow; ++i) {
+        y[i] = matrix->implicit_value * implicit_sum;
+        for (int p = matrix->row_ptr[i]; p < matrix->row_ptr[i + 1]; ++p) {
+            int j = matrix->col_index[p];
+            y[i] += (matrix->values[p] - matrix->implicit_value) * x[j];
         }
     }
+}
+
+static void csr_transpose_matvec(const CSRStruct *matrix, const double *x, double *y) {
+    double implicit_sum = 0.0;
+    if (matrix->implicit_value != 0.0) {
+        for (int i = 0; i < matrix->nrow; ++i) implicit_sum += x[i];
+    }
+
+    for (int j = 0; j < matrix->ncol; ++j) {
+        y[j] = matrix->implicit_value * implicit_sum;
+    }
+
+    for (int i = 0; i < matrix->nrow; ++i) {
+        for (int p = matrix->row_ptr[i]; p < matrix->row_ptr[i + 1]; ++p) {
+            int j = matrix->col_index[p];
+            y[j] += (matrix->values[p] - matrix->implicit_value) * x[i];
+        }
+    }
+}
+
+static void build_bidiagonal_gram(double *gram, const double *alpha, const double *beta, int l) {
+    for (int i = 0; i < l * l; ++i) gram[i] = 0.0;
+
+    for (int i = 0; i < l; ++i) {
+        gram[i * l + i] = alpha[i] * alpha[i] + (i > 0 ? beta[i - 1] * beta[i - 1] : 0.0);
+        if (i + 1 < l) {
+            double offdiag = alpha[i] * beta[i];
+            gram[i * l + i + 1] = offdiag;
+            gram[(i + 1) * l + i] = offdiag;
+        }
+    }
+}
+
+static int build_ritz_vectors(double *dense_u, double *dense_v, double *singular_values,
+                              const double *lanczos_u, const double *lanczos_v,
+                              const double *alpha, const double *beta,
+                              const double *small_right_vectors, const double *small_eigenvalues,
+                              int m, int n, int k, int l, int basis_cols, double tol) {
+    double *small_left = (double *)calloc((size_t)l * (size_t)k, sizeof(double));
+    if (!small_left) return 2;
+
+    for (int col = 0; col < k; ++col) {
+        double lambda = col < l && small_eigenvalues[col] > 0.0 ? small_eigenvalues[col] : 0.0;
+        singular_values[col] = sqrt(lambda);
+
+        if (col < l && singular_values[col] > tol) {
+            for (int row = 0; row < l; ++row) {
+                double value = alpha[row] * small_right_vectors[row * l + col];
+                if (row + 1 < l) value += beta[row] * small_right_vectors[(row + 1) * l + col];
+                small_left[row * k + col] = value / singular_values[col];
+            }
+        }
+    }
+
+    for (int col = 0; col < k; ++col) {
+        for (int row = 0; row < n; ++row) {
+            double value = 0.0;
+            if (col < l) {
+                for (int j = 0; j < l; ++j) {
+                    value += lanczos_v[row * basis_cols + j] * small_right_vectors[j * l + col];
+                }
+            }
+            dense_v[row * k + col] = value;
+        }
+
+        for (int row = 0; row < m; ++row) {
+            double value = 0.0;
+            if (col < l) {
+                for (int j = 0; j < l; ++j) {
+                    value += lanczos_u[row * basis_cols + j] * small_left[j * k + col];
+                }
+            }
+            dense_u[row * k + col] = value;
+        }
+    }
+
+    for (int col = 0; col < k; ++col) {
+        int status = orthonormalize_column(dense_v, n, k, col, tol);
+        if (status) {
+            free(small_left);
+            return status;
+        }
+        status = orthonormalize_column(dense_u, m, k, col, tol);
+        if (status) {
+            free(small_left);
+            return status;
+        }
+    }
+
+    free(small_left);
+    return 0;
 }
 
 /**
@@ -1287,7 +1385,17 @@ int svd(CSRStruct *u, CSRStruct *s, CSRStruct *v, CSRStruct *matrix, int k) {
         return dense_to_sparse_matrix(v, n, k, NULL, tolerance);
     }
 
-    double *a = dense_from_csr(matrix);
+    int steps = 2 * k + 1;
+    if (steps < k + 20) steps = k + 20;
+    if (steps > max_k) steps = max_k;
+    if (steps < k) steps = k;
+
+    double *lanczos_u = NULL;
+    double *lanczos_v = NULL;
+    double *work_m = NULL;
+    double *work_n = NULL;
+    double *alpha = NULL;
+    double *beta = NULL;
     double *gram = NULL;
     double *eigenvalues = NULL;
     double *eigenvectors = NULL;
@@ -1295,89 +1403,82 @@ int svd(CSRStruct *u, CSRStruct *s, CSRStruct *v, CSRStruct *matrix, int k) {
     double *dense_u = NULL;
     double *dense_v = NULL;
     int status = 0;
-    int eig_dim = m >= n ? n : m;
+    int actual_steps = 0;
 
-    if (!a) return 2;
-
-    eigenvalues = (double *)malloc((size_t)eig_dim * sizeof(double));
+    lanczos_u = (double *)calloc((size_t)m * (size_t)steps, sizeof(double));
+    lanczos_v = (double *)calloc((size_t)n * (size_t)steps, sizeof(double));
+    work_m = (double *)calloc((size_t)m, sizeof(double));
+    work_n = (double *)calloc((size_t)n, sizeof(double));
+    alpha = (double *)calloc((size_t)steps, sizeof(double));
+    beta = (double *)calloc((size_t)steps, sizeof(double));
     singular_values = (double *)malloc((size_t)k * sizeof(double));
     dense_u = (double *)calloc((size_t)m * (size_t)k, sizeof(double));
     dense_v = (double *)calloc((size_t)n * (size_t)k, sizeof(double));
 
-    if (!eigenvalues || !singular_values || !dense_u || !dense_v) {
+    if (!lanczos_u || !lanczos_v || !work_m || !work_n || !alpha || !beta ||
+        !singular_values || !dense_u || !dense_v) {
         status = 2;
         goto cleanup;
     }
 
-    if (m >= n) {
-        gram = (double *)malloc((size_t)n * (size_t)n * sizeof(double));
-        eigenvectors = (double *)malloc((size_t)n * (size_t)n * sizeof(double));
-        if (!gram || !eigenvectors) {
-            status = 2;
-            goto cleanup;
-        }
+    deterministic_initial_vector(work_n, n);
+    copy_vector_to_column(lanczos_v, n, steps, 0, work_n, 1.0);
 
-        build_ata(gram, a, m, n);
-        status = jacobi_symmetric_eigen(gram, n, eigenvalues, eigenvectors);
-        if (status) goto cleanup;
-        sort_eigenpairs_descending(eigenvalues, eigenvectors, n);
+    for (int j = 0; j < steps; ++j) {
+        for (int row = 0; row < n; ++row) work_n[row] = lanczos_v[row * steps + j];
 
-        for (int col = 0; col < k; ++col) {
-            double lambda = eigenvalues[col] > 0.0 ? eigenvalues[col] : 0.0;
-            singular_values[col] = sqrt(lambda);
-
-            for (int row = 0; row < n; ++row) {
-                dense_v[row * k + col] = eigenvectors[row * n + col];
-            }
-
-            if (singular_values[col] > tolerance) {
-                for (int row = 0; row < m; ++row) {
-                    double sum = 0.0;
-                    for (int c = 0; c < n; ++c) {
-                        sum += a[row * n + c] * dense_v[c * k + col];
-                    }
-                    dense_u[row * k + col] = sum / singular_values[col];
-                }
-            }
-
-            status = orthonormalize_column(dense_u, m, k, col, tolerance);
-            if (status) goto cleanup;
-        }
-    } else {
-        gram = (double *)malloc((size_t)m * (size_t)m * sizeof(double));
-        eigenvectors = (double *)malloc((size_t)m * (size_t)m * sizeof(double));
-        if (!gram || !eigenvectors) {
-            status = 2;
-            goto cleanup;
-        }
-
-        build_aat(gram, a, m, n);
-        status = jacobi_symmetric_eigen(gram, m, eigenvalues, eigenvectors);
-        if (status) goto cleanup;
-        sort_eigenpairs_descending(eigenvalues, eigenvectors, m);
-
-        for (int col = 0; col < k; ++col) {
-            double lambda = eigenvalues[col] > 0.0 ? eigenvalues[col] : 0.0;
-            singular_values[col] = sqrt(lambda);
-
+        csr_matvec(matrix, work_n, work_m);
+        if (j > 0) {
             for (int row = 0; row < m; ++row) {
-                dense_u[row * k + col] = eigenvectors[row * m + col];
+                work_m[row] -= beta[j - 1] * lanczos_u[row * steps + j - 1];
             }
+        }
 
-            status = orthonormalize_column(dense_u, m, k, col, tolerance);
+        reorthogonalize_vector(lanczos_u, m, steps, j, work_m);
+        alpha[j] = vector_norm(work_m, m);
+        if (alpha[j] <= tolerance) break;
+
+        copy_vector_to_column(lanczos_u, m, steps, j, work_m, 1.0 / alpha[j]);
+        actual_steps = j + 1;
+
+        for (int row = 0; row < m; ++row) work_m[row] = lanczos_u[row * steps + j];
+        csr_transpose_matvec(matrix, work_m, work_n);
+        for (int row = 0; row < n; ++row) {
+            work_n[row] -= alpha[j] * lanczos_v[row * steps + j];
+        }
+
+        reorthogonalize_vector(lanczos_v, n, steps, j + 1, work_n);
+        beta[j] = vector_norm(work_n, n);
+
+        if (beta[j] <= tolerance || j + 1 >= steps) break;
+        copy_vector_to_column(lanczos_v, n, steps, j + 1, work_n, 1.0 / beta[j]);
+    }
+
+    if (actual_steps > 0) {
+        gram = (double *)malloc((size_t)actual_steps * (size_t)actual_steps * sizeof(double));
+        eigenvalues = (double *)malloc((size_t)actual_steps * sizeof(double));
+        eigenvectors = (double *)malloc((size_t)actual_steps * (size_t)actual_steps * sizeof(double));
+        if (!gram || !eigenvalues || !eigenvectors) {
+            status = 2;
+            goto cleanup;
+        }
+
+        build_bidiagonal_gram(gram, alpha, beta, actual_steps);
+        status = jacobi_symmetric_eigen(gram, actual_steps, eigenvalues, eigenvectors);
+        if (status) goto cleanup;
+        sort_eigenpairs_descending(eigenvalues, eigenvectors, actual_steps);
+
+        status = build_ritz_vectors(dense_u, dense_v, singular_values,
+                                    lanczos_u, lanczos_v, alpha, beta,
+                                    eigenvectors, eigenvalues,
+                                    m, n, k, actual_steps, steps, tolerance);
+        if (status) goto cleanup;
+    } else {
+        for (int col = 0; col < k; ++col) singular_values[col] = 0.0;
+        for (int col = 0; col < k; ++col) {
+            status = complete_orthonormal_column(dense_u, m, k, col, tolerance);
             if (status) goto cleanup;
-
-            if (singular_values[col] > tolerance) {
-                for (int row = 0; row < n; ++row) {
-                    double sum = 0.0;
-                    for (int r = 0; r < m; ++r) {
-                        sum += a[r * n + row] * dense_u[r * k + col];
-                    }
-                    dense_v[row * k + col] = sum / singular_values[col];
-                }
-            }
-
-            status = orthonormalize_column(dense_v, n, k, col, tolerance);
+            status = complete_orthonormal_column(dense_v, n, k, col, tolerance);
             if (status) goto cleanup;
         }
     }
@@ -1389,7 +1490,12 @@ int svd(CSRStruct *u, CSRStruct *s, CSRStruct *v, CSRStruct *matrix, int k) {
     status = dense_to_sparse_matrix(v, n, k, dense_v, tolerance);
 
 cleanup:
-    free(a);
+    free(lanczos_u);
+    free(lanczos_v);
+    free(work_m);
+    free(work_n);
+    free(alpha);
+    free(beta);
     free(gram);
     free(eigenvalues);
     free(eigenvectors);

@@ -1,5 +1,12 @@
 Revision history for "Math::SparseMatrix::Native"
 
+0.0.8 2026-04-26
+    - Faster sparse SVD implementation.
+
+0.0.7 2026-04-25
+    - First version of SVD implementation.
+        - Published, in order to experiment and test with "Math::SparseMatrix".
+
 0.0.5 2025-10-19
     - Implemented row sums and maxes in C.
       - And corresponding "top-level" methods.

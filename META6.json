@@ -22,8 +22,7 @@
     "Math::SparseMatrix::Native::Utilities": "lib/Math/SparseMatrix/Native/Utilities.rakumod"
   },
   "resources": [
-    "libraries/SparseMatrixFunctions",
-    "libraries/libSparseMatrixFunctions.dylib"
+    "libraries/SparseMatrixFunctions"
   ],
   "license": "Artistic-2.0",
   "tags": [

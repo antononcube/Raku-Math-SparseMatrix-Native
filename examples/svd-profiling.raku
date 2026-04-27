@@ -1,7 +1,8 @@
 #!/usr/bin/env raku
 use v6.d;
 
-# Approximately, 6 times slower that the corresponding Wolfram Language profiling results.
+# Using tolerance => 10e-12 : ≈ 6 times slower that the corresponding Wolfram Language profiling results.
+# Using tolerance => 10e-8 : ≈ 6 times slower that the corresponding Wolfram Language profiling results.
 #`[
 
 {m, n} = {1000, 600};
@@ -32,6 +33,7 @@ my $density = 0.2;
 my $nnz = ($nrow * $ncol * $density).Int;
 my $seed = 3432;
 my $k = 100;
+my $tolerance = 1e-16;
 
 my $tstart = now;
 my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
@@ -43,7 +45,7 @@ say "Fill in 1: ", $matrix1.explicit-length / $matrix1.rows-count / $matrix1.col
 say "-" x 100;
 
 $tstart = now;
-my ($u, $s, $v) = $matrix1.svd($k);
+my ($u, $s, $v) = $matrix1.svd($k, :$tolerance);
 $tend = now;
 say "SVD time: { $tend - $tstart } seconds.";
 

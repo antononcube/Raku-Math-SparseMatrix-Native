@@ -89,7 +89,7 @@ class CSRStruct is repr('CStruct') {
     sub top_k_sparse_matrix(CSRStruct is rw, CSRStruct, int32)
             is native($library) {*}
 
-    sub svd(CSRStruct is rw, CSRStruct is rw, CSRStruct is rw, CSRStruct, int32 --> int32)
+    sub svd(CSRStruct is rw, CSRStruct is rw, CSRStruct is rw, CSRStruct, int32, num64 --> int32)
             is native($library) {*}
 
     #=================================================================
@@ -688,14 +688,14 @@ class CSRStruct is repr('CStruct') {
     # Singular Value Decomposition
     #=================================================================
     #| Thin singular value decomposition with k largest singular values. Returns (u, s, v), where self ~= u * s * v.transpose when k is full rank.
-    method svd(UInt:D $k = min($!nrow, $!ncol)) {
+    method svd(UInt:D $k = min($!nrow, $!ncol), Numeric:D :tol(:$tolerance) = 1e-8) {
         die 'The argument $k is expected to be between 0 and min(nrow, ncol).'
         unless $k <= min($!nrow, $!ncol);
 
         my $u = CSRStruct.new();
         my $s = CSRStruct.new();
         my $v = CSRStruct.new();
-        my $status = svd($u, $s, $v, self, $k);
+        my $status = svd($u, $s, $v, self, $k, $tolerance.Num);
         die "Native SVD failed with status $status." if $status;
         return ($u, $s, $v);
     }

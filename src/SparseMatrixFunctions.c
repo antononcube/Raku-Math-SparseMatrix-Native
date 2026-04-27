@@ -1367,11 +1367,10 @@ static int build_ritz_vectors(double *dense_u, double *dense_v, double *singular
  * and v is n-by-k. The k columns correspond to the k largest singular
  * values in descending order.
  */
-int svd(CSRStruct *u, CSRStruct *s, CSRStruct *v, CSRStruct *matrix, int k) {
+int svd(CSRStruct *u, CSRStruct *s, CSRStruct *v, CSRStruct *matrix, int k, double tolerance) {
     if (!u || !s || !v || !matrix) return 1;
     if (matrix->nrow < 0 || matrix->ncol < 0 || matrix->nnz < 0) return 1;
-
-    const double tolerance = 1e-12;
+    // printf("tolerance %e\n", tolerance);
     int m = matrix->nrow;
     int n = matrix->ncol;
     int max_k = svd_min_int(m, n);

@@ -33,7 +33,8 @@ my $density = 0.2;
 my $nnz = ($nrow * $ncol * $density).Int;
 my $seed = 3432;
 my $k = 100;
-my $tolerance = 1e-16;
+my $max-steps = 120;
+my $tolerance = 1e-8;
 
 my $tstart = now;
 my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
@@ -45,7 +46,7 @@ say "Fill in 1: ", $matrix1.explicit-length / $matrix1.rows-count / $matrix1.col
 say "-" x 100;
 
 $tstart = now;
-my ($u, $s, $v) = $matrix1.svd($k, :$tolerance);
+my ($u, $s, $v) = $matrix1.svd($k, :$max-steps, :$tolerance);
 $tend = now;
 say "SVD time: { $tend - $tstart } seconds.";
 

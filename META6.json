@@ -26,12 +26,14 @@
   ],
   "license": "Artistic-2.0",
   "tags": [
-    "sparse",
-    "sparse matrix",
-    "linear algebra",
-    "sparse linear algebra",
+    "dot product",
     "dot",
-    "dot product"
+    "linear algebra",
+    "singular value decomposition",
+    "sparse linear algebra",
+    "sparse matrix",
+    "sparse",
+    "svd"
   ],
   "api": "0",
   "source-url": "https://github.com/antononcube/Raku-Math-SparseMatrix-Native.git",

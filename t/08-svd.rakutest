@@ -31,6 +31,7 @@ sub check-svd(@dense, Str:D $label) {
     ok max-abs-diff($reconstructed.Array, $matrix.Array) < 1e-8, "$label reconstructs input";
 }
 
+## 1
 check-svd(
         [
             [1e0, 0e0],
@@ -39,6 +40,7 @@ check-svd(
         ],
         'tall matrix');
 
+## 2
 check-svd(
         [
             [1e0, 0e0, 3e0],
@@ -46,6 +48,7 @@ check-svd(
         ],
         'wide matrix');
 
+## 3
 check-svd(
         [
             [1e0, 2e0, 3e0],
@@ -54,7 +57,8 @@ check-svd(
         ],
         'rank deficient matrix');
 
-{
+## 4
+subtest {
     my $matrix = Math::SparseMatrix::Native::CSRStruct.new(
             dense-matrix => [
                 [3e0, 0e0],
@@ -77,11 +81,20 @@ check-svd(
                 [0e0, 0e0],
             ]) < 1e-8,
             'truncated reconstructs leading component';
-}
+}, 'approximately correct reconstruction';
 
-{
+## 5
+subtest {
     my $matrix = Math::SparseMatrix::Native::CSRStruct.new(dense-matrix => [[1e0, 0e0], [0e0, 1e0]]);
     dies-ok { $matrix.svd(3) }, 'k larger than min dimensions dies';
-}
+}, 'k range';
+
+## 6
+subtest {
+    my $matrix = Math::SparseMatrix::Native::CSRStruct.new.random(:100nrow, :60ncol, :300nnz, :32322seed);
+    ok $matrix.svd(5, :120max-steps);
+    ok $matrix.svd(5, :120max-steps, tolerance => 1e-3);
+    ok $matrix.svd(5, max-steps => Whatever, tol => 1e-3);
+}, 'signatures';
 
 done-testing;

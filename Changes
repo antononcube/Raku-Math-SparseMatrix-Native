@@ -1,5 +1,8 @@
 Revision history for "Math::SparseMatrix::Native"
 
+0.0.9 2026-04-30
+    - Surfaced to Raku the SVD stopping criteria parameters for max-steps and tolerance.
+
 0.0.8 2026-04-26
     - Faster sparse SVD implementation.
 

@@ -16,10 +16,23 @@ my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :
 plan *;
 
 ## 1
-isa-ok $matrix1.unitize, Math::SparseMatrix::Native::CSRStruct:D, "unitize type";
+subtest {
+    isa-ok $matrix1.unitize, Math::SparseMatrix::Native::CSRStruct:D, "unitize type";
+
+    my $m = $matrix1.unitize;
+    is $m.tuples».tail.max, 1, 'max is 1';
+    is $m.tuples».tail.min, 1, 'min is 1';
+    is $matrix1.tuples».tail.min < 1, True, 'no changes of min';
+}, 'unitize';
 
 ## 2
-isa-ok $matrix1.clip(min => 0.2, max => 0.6), Math::SparseMatrix::Native::CSRStruct:D, "clip type";
+subtest {
+    isa-ok $matrix1.clip(min => 0.2, max => 0.6), Math::SparseMatrix::Native::CSRStruct:D, "clip type";
+    my $m = $matrix1.clip(min => 0.2, max => 0.6);
+    is $m.tuples».tail.max, 0.6, 'expected max';
+    is $m.tuples».tail.min, 0.2, 'expected min';
+    is $matrix1.tuples».tail.min < 0.2, True, 'no changes of min';
+}, 'clip';
 
 ## 3
 isa-ok $matrix1.round(0.2), Math::SparseMatrix::Native::CSRStruct:D, "round type";

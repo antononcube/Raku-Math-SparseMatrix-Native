@@ -448,7 +448,8 @@ class CSRStruct is repr('CStruct') {
             UInt:D $ncol,
             $nnz is copy = Whatever,
             Numeric:D $implicit_value = 0.0,
-            :$seed is copy = Whatever --> int32) {
+            :$seed is copy = Whatever
+            --> CSRStruct:D) {
         return self.random(:$nrow, :$ncol, :$nnz, :$implicit_value, :$seed);
     }
 
@@ -456,7 +457,8 @@ class CSRStruct is repr('CStruct') {
                         UInt:D :$ncol,
                         :$nnz is copy = Whatever,
                         Numeric:D :$implicit_value = 0.0,
-                        :$seed is copy = Whatever --> int32) {
+                        :$seed is copy = Whatever
+                        --> CSRStruct:D) {
         if $nnz.isa(Whatever) {
             $nnz = min(1000, $nrow * $ncol * 0.01).Int;
         }

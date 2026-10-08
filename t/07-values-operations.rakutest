@@ -11,7 +11,12 @@ my $density = 0.4;
 my $nnz = ($nrow * $ncol * $density).Int;
 my $seed = 37432;
 
-my $matrix1 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
+my $matrix1;
+loop {
+    $matrix1 = Math::SparseMatrix::Native::CSRStruct.new.random(:$nrow, :$ncol, :$nnz, :$seed);
+    last if $matrix1.tuples».tail.min < 0.2 && $matrix1.tuples».tail.max > 0.6;
+    $seed++;
+}
 
 plan *;
 
